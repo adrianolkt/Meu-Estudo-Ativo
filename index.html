@@ -1,0 +1,3363 @@
+<!DOCTYPE html>
+<html lang="pt-PT">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="theme-color" content="#102a43">
+
+    <title>Estudo Ativo - App</title>
+
+    <!-- PWA: manifest + ícones -->
+    <link rel="manifest" href="manifest.json">
+    <link rel="icon" type="image/png" sizes="192x192" href="icons/icon-192.png">
+    <link rel="apple-touch-icon" href="icons/icon-192.png">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="Estudo Ativo">
+
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
+    <link type="text/css" rel="stylesheet" href="https://cdn.jsdelivr.net/npm/jsmind@0.5.4/style/jsmind.css" />
+    <script type="text/javascript" src="https://cdn.jsdelivr.net/npm/jsmind@0.5.4/js/jsmind.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
+    
+    <style>
+        * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+        
+        body, html { 
+            margin: 0; padding: 0; width: 100%; height: 100%; 
+            font-family: 'Inter', sans-serif; 
+            background-color: #f4f6f9;
+            overflow: hidden; 
+            display: flex; flex-direction: column;
+            -webkit-user-select: none; -moz-user-select: none; -ms-user-select: none; user-select: none;
+        }
+        
+        .app-header { 
+            background: #102a43; color: white; 
+            padding: 15px 20px; text-align: center;
+        }
+        .app-header h1 { margin: 0; font-size: 18px; font-weight: 700; }
+        .app-header p { margin: 5px 0 10px 0; font-size: 12px; color: #9fb3c8; }
+
+        /* Em telas pequenas na horizontal (celular deitado), esconde o cabeçalho
+           (título + subtítulo) e os botões do topo para aproveitar melhor o
+           pouco espaço vertical disponível */
+        @media (orientation: landscape) and (max-height: 500px) {
+            .app-header { display: none !important; }
+            #painel-padrao { display: none !important; }
+        }
+        
+        .seletor-container {
+            background: #102a43;
+            padding: 0 20px 15px 20px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            z-index: 10;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            transition: max-height 0.4s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.3s ease, padding 0.3s ease;
+            max-height: 200px;
+            opacity: 1;
+            overflow: hidden;
+        }
+        
+        .seletor-container.oculto {
+            max-height: 0;
+            padding-top: 0;
+            padding-bottom: 0;
+            opacity: 0;
+            pointer-events: none;
+        }
+
+        .seletor-dropdown {
+            width: 100%;
+            max-width: 500px;
+            margin: 0 auto;
+            display: block;
+            padding: 10px 15px;
+            border-radius: 8px;
+            border: 1px solid #2b6cb0;
+            font-size: 14px;
+            font-weight: 600;
+            color: #fff;
+            background-color: #2c5282;
+            cursor: pointer;
+            outline: none;
+            -webkit-appearance: none;
+            -moz-appearance: none;
+            appearance: none;
+            background-image: url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='white' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3e%3cpolyline points='6 9 12 15 18 9'%3e%3c/polyline%3e%3c/svg%3e");
+            background-repeat: no-repeat;
+            background-position: right 1rem center;
+            background-size: 1em;
+        }
+        .seletor-dropdown option { background-color: #fff; color: #1a202c; }
+        .seletor-dropdown option:disabled { background-color: #e2e8f0; color: #a0aec0; font-style: italic; }
+
+        .progress-container {
+            width: 100%; height: 10px; background-color: #e2e8f0; z-index: 10;
+        }
+        .progress-bar {
+            height: 100%; background: linear-gradient(90deg, #48bb78, #38a169); width: 0%; transition: width 0.4s ease;
+        }
+
+        #painel-padrao {
+            display: flex; width: 100%; justify-content: space-between;
+            background: white; padding: 6px 10px; border-bottom: 1px solid #e2e8f0;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.05); z-index: 9;
+            flex-wrap: wrap; align-items: center; gap: 6px;
+        }
+        .painel-grupo {
+            display: flex; gap: 6px; flex-wrap: wrap; justify-content: flex-end; flex: 1;
+        }
+        #painel-padrao button { 
+            flex: 0 1 auto; padding: 6px 10px; font-size: 12px; color: white;
+            border: none; border-radius: 6px; font-weight: bold; cursor: pointer;
+        }
+
+        .btn-toggle-menu { background: #edf2f7 !important; color: #2d3748 !important; border: 1px solid #cbd5e0 !important; }
+        .btn-progresso { background: #2b6cb0 !important; color: white !important; }
+        .btn-revisar { background: #dd6b20; }
+        .btn-frequentes { background: #805ad5; } 
+        .btn-ativar { background: #38b2ac; color: white !important; }
+        .btn-reset { background: #a0aec0; color: #1a202c !important; }
+
+        #jsmind_container { flex-grow: 1; width: 100%; background: #fafbfc; overflow: auto; }
+
+        /* Aumenta o respiro interno do container principal do jsMind */
+        jmnodes {
+            padding: 20px !important;
+        }
+
+        jmnode { 
+            font-family: 'Inter', sans-serif !important; border-radius: 8px !important; 
+            padding: 12px 16px !important; font-size: 14px !important;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.08) !important; transition: background-color 0.2s, color 0.2s;
+            white-space: nowrap !important; /* MANTÉM pastas e tópicos numa linha só */
+        }
+
+        /* CLASSE DINÂMICA: Aplicada via JavaScript SOMENTE aos cartões */
+        jmnode.cartao-flashcard {
+            white-space: normal !important; 
+            word-wrap: break-word !important; 
+            max-width: 280px !important; 
+            line-height: 1.4 !important; 
+        }
+
+        .app-footer { background: white; z-index: 10; }
+        .painel-botoes { display: flex; gap: 10px; width: 100%; }
+        
+        #painel-avaliacao { display: none; padding: 15px; border-top: 1px solid #e2e8f0; }
+
+        .app-footer button:not(.btn-spacebar) {
+            flex: 1; border: none; padding: 14px; border-radius: 8px; 
+            font-weight: 700; font-size: 15px; cursor: pointer; transition: 0.2s; color: white;
+        }
+        
+        .btn-acertei { background: #38a169; }
+        .btn-acertei:active { background: #2f855a; }
+        .btn-errei { background: #e53e3e; }
+        .btn-errei:active { background: #c53030; }
+
+        #painel-revelar { display: block; padding: 15px; border-top: 1px solid #e2e8f0; width: 100%; }
+        .btn-spacebar {
+            width: 100%; height: 50px; background-color: #cbd5e0; border: none; 
+            border-radius: 8px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); 
+            cursor: pointer; transition: background-color 0.2s, transform 0.1s;
+            font-family: 'Inter', sans-serif; font-size: 15px; font-weight: 700; color: #2d3748;
+        }
+        .btn-spacebar:active {
+            background-color: #a0aec0; box-shadow: 0 2px 4px rgba(0,0,0,0.1); 
+            transform: translateY(2px);
+        }
+
+        /* ---- Painel de análise (tela inicial) ---- */
+        #analise-por-contexto {
+            display: flex; flex-direction: column; gap: 12px;
+        }
+        .contexto-analise-bloco {
+            display: flex; flex-direction: column;
+            background: white; border-radius: 12px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+            overflow: hidden;
+        }
+        .contexto-analise-cabecalho {
+            display: flex; align-items: center; gap: 10px;
+            background: none; border: none; cursor: pointer;
+            padding: 14px 16px; width: 100%; text-align: left;
+        }
+        .contexto-analise-cabecalho:active { background: #f4f6f9; }
+        .contexto-analise-seta {
+            font-size: 11px; color: #718096; transition: transform 0.15s;
+        }
+        .contexto-analise-titulo {
+            font-size: 14px; font-weight: 800; color: #1a202c; margin: 0;
+        }
+        .contexto-analise-conteudo {
+            flex-direction: column; gap: 10px;
+            padding: 0 16px 16px 16px;
+        }
+        .painel-analise {
+            background: #f8f9fb; border-radius: 10px;
+            padding: 14px 16px; margin-bottom: 0;
+        }
+        .painel-analise-titulo {
+            font-size: 13px; font-weight: 700; color: #4a5568;
+            text-transform: uppercase; letter-spacing: 0.05em;
+            margin: 0 0 14px 0;
+        }
+        /* Gráfico de barras horizontais */
+        .grafico-barra-linha {
+            display: flex; align-items: center; gap: 8px; margin-bottom: 10px;
+        }
+        .grafico-barra-label {
+            font-size: 12px; color: #2d3748; font-weight: 600;
+            width: 110px; flex-shrink: 0; white-space: nowrap;
+            overflow: hidden; text-overflow: ellipsis;
+        }
+        .grafico-barra-track {
+            flex: 1; background: #e2e8f0; border-radius: 99px;
+            height: 14px; overflow: hidden;
+        }
+        .grafico-barra-fill {
+            height: 100%; border-radius: 99px;
+            transition: width 0.5s ease;
+        }
+        .grafico-barra-pct {
+            font-size: 11px; font-weight: 700; color: #4a5568;
+            width: 32px; text-align: right; flex-shrink: 0;
+        }
+        /* Lista de pontos fracos */
+        .pontos-fracos-lista { display: flex; flex-direction: column; gap: 6px; margin-top: 6px; }
+        .ponto-fraco-item {
+            display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
+            padding: 8px 10px; border-radius: 8px;
+            background: #fff5f5; border-left: 3px solid #e53e3e;
+        }
+        .btn-revisar-ponto-fraco {
+            font-size: 11px; font-weight: 700; color: white;
+            background: #805ad5; border: none; border-radius: 6px;
+            padding: 5px 9px; cursor: pointer; flex-shrink: 0;
+            white-space: nowrap;
+        }
+        .btn-revisar-ponto-fraco:active { background: #6b46c1; transform: scale(0.96); }
+        .ponto-fraco-rank {
+            font-size: 13px; font-weight: 800; color: #e53e3e;
+            width: 20px; flex-shrink: 0; text-align: center;
+        }
+        .ponto-fraco-info { flex: 1; min-width: 0; }
+        .ponto-fraco-nome {
+            font-size: 13px; font-weight: 600; color: #2d3748;
+            white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+        }
+        .ponto-fraco-disc {
+            font-size: 11px; color: #718096; margin-top: 1px;
+        }
+        .ponto-fraco-badge {
+            font-size: 11px; font-weight: 700; color: #e53e3e;
+            background: #fed7d7; border-radius: 99px;
+            padding: 2px 7px; flex-shrink: 0;
+        }
+
+        /* Ranking de assuntos dentro da disciplina */
+        .card-assunto-rank {
+            display: flex; align-items: center; justify-content: center;
+            width: 22px; height: 22px; border-radius: 50%;
+            font-size: 12px; font-weight: 800; flex-shrink: 0;
+        }
+        .card-assunto-erros {
+            font-size: 11px; font-weight: 700; color: #e53e3e;
+            background: #fed7d7; border-radius: 99px;
+            padding: 2px 7px; margin-left: auto; flex-shrink: 0;
+        }
+
+        /* Badge de notificação (bolinha com número) — quantos cartões estão
+           pendentes de resposta AGORA (diferente da distribuição por caixa,
+           que mostra o histórico completo). */
+        .badge-notificacao {
+            position: absolute; top: -6px; right: -6px;
+            min-width: 20px; height: 20px; padding: 0 5px;
+            background: #e53e3e; color: white;
+            border-radius: 99px; border: 2px solid #f4f6f9;
+            font-size: 11px; font-weight: 800;
+            display: flex; align-items: center; justify-content: center;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.3);
+            font-variant-numeric: tabular-nums;
+        }
+        body.dark-mode .badge-notificacao { border-color: #12181f; }
+
+        /* ---- Telas de seleção ---- */
+        #tela-contextos,
+        #tela-disciplinas,
+        #tela-selecao {
+            display: flex; flex-direction: column; flex-grow: 1;
+            overflow-y: auto; padding: 16px; gap: 12px; background: #f4f6f9;
+        }
+        .selecao-titulo {
+            font-size: 13px; font-weight: 700; color: #4a5568;
+            text-transform: uppercase; letter-spacing: 0.05em; margin: 4px 0 0 2px;
+        }
+        .card-disciplina {
+            background: white; border-radius: 12px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+            padding: 16px 18px; cursor: pointer;
+            border-left: 5px solid #2b6cb0;
+            transition: transform 0.15s, box-shadow 0.15s;
+            position: relative;
+        }
+        .card-disciplina:active { transform: scale(0.98); box-shadow: 0 1px 4px rgba(0,0,0,0.1); }
+        .card-disciplina-nome {
+            font-size: 15px; font-weight: 700; color: #1a202c; margin-bottom: 10px;
+        }
+        .card-disciplina-progresso-label {
+            font-size: 11px; color: #718096; margin-bottom: 5px;
+            display: flex; justify-content: space-between;
+        }
+        .card-disciplina-barra-bg {
+            background: #e2e8f0; border-radius: 99px; height: 8px; overflow: hidden;
+        }
+        .card-disciplina-barra-fill {
+            height: 100%; border-radius: 99px;
+            background: linear-gradient(90deg, #48bb78, #38a169);
+            transition: width 0.4s ease;
+        }
+        /* Card de contexto (banca/órgão) */
+        .card-contexto {
+            background: white; border-radius: 12px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+            padding: 16px 18px; cursor: pointer;
+            display: flex; align-items: center; gap: 14px;
+            border-left: 5px solid #553c9a;
+            transition: transform 0.15s, box-shadow 0.15s;
+            position: relative;
+        }
+        .card-contexto:active { transform: scale(0.98); }
+        .card-contexto-icone { font-size: 24px; }
+        .card-contexto-info { flex: 1; }
+        .card-contexto-nome { font-size: 15px; font-weight: 700; color: #1a202c; }
+        .card-contexto-desc { font-size: 12px; color: #718096; margin-top: 2px; }
+        .card-contexto-pct { font-size: 16px; font-weight: 800; flex-shrink: 0; }
+        .selos-revisao-linha { display: flex; gap: 4px; margin-top: 4px; }
+        .selo-revisao {
+            font-size: 11px; border-radius: 99px; padding: 2px 6px;
+            display: inline-flex; align-items: center; gap: 2px;
+        }
+        .selo-frequentes { background: #e9d8fd; }
+        .selo-erradas    { background: #fed7d7; }
+        .selo-espacada   { background: #bee3f8; }
+        .leitner-linha { display: flex; gap: 4px; margin-top: 4px; flex-wrap: wrap; }
+        .leitner-badge {
+            font-size: 10px; font-weight: 700; color: #2d3748;
+            background: #edf2f7; border-radius: 99px; padding: 2px 6px;
+            display: inline-flex; align-items: center; gap: 2px;
+            border: 1.5px solid transparent;
+        }
+
+        /* Caixa prioritária: a menor caixa que ainda tem cartão pendente hoje.
+           Borda brilhante + leve pulso pra chamar atenção imediata. */
+        .leitner-badge-prioridade {
+            background: #fff5f5; color: #c53030; font-weight: 800;
+            border-color: #e53e3e;
+            box-shadow: 0 0 0 0 rgba(229,62,62,0.5);
+            animation: leitnerPulso 1.6s ease-in-out infinite;
+        }
+        @keyframes leitnerPulso {
+            0%   { box-shadow: 0 0 0 0 rgba(229,62,62,0.45); }
+            70%  { box-shadow: 0 0 0 6px rgba(229,62,62,0); }
+            100% { box-shadow: 0 0 0 0 rgba(229,62,62,0); }
+        }
+        body.dark-mode .leitner-badge-prioridade { background: #3d1f1f; color: #feb2b2; }
+
+        /* Header das sub-telas */
+        .sub-header {
+            background: #102a43; color: white; padding: 12px 16px;
+            display: flex; align-items: center; gap: 10px; flex-shrink: 0;
+        }
+        .btn-voltar {
+            background: none; border: none; color: white; font-size: 20px;
+            cursor: pointer; padding: 0 4px; line-height: 1;
+        }
+        .sub-header-titulo { font-size: 15px; font-weight: 700; }
+
+        /* Lista de assuntos (terceira tela) */
+        #tela-assuntos {
+            display: none; flex-direction: column; flex-grow: 1; overflow-y: auto; background: #f4f6f9;
+        }
+        .lista-assuntos { padding: 12px; display: flex; flex-direction: column; gap: 8px; }
+        .card-assunto {
+            background: white; border-radius: 10px;
+            box-shadow: 0 1px 4px rgba(0,0,0,0.07);
+            padding: 14px 16px; cursor: pointer;
+            transition: transform 0.12s;
+            position: relative;
+        }
+        .card-assunto:active { transform: scale(0.98); }
+        .card-assunto-topo {
+            display: flex; align-items: center; gap: 12px; margin-bottom: 8px;
+        }
+        .card-assunto-icone { font-size: 20px; }
+        .card-assunto-nome { font-size: 14px; font-weight: 600; color: #2d3748; flex: 1; }
+        .card-assunto-progresso-label {
+            font-size: 11px; color: #718096; margin-bottom: 4px;
+            display: flex; justify-content: space-between;
+        }
+        .card-assunto-barra-bg {
+            background: #e2e8f0; border-radius: 99px; height: 6px; overflow: hidden;
+        }
+        .card-assunto-barra-fill {
+            height: 100%; border-radius: 99px;
+            background: linear-gradient(90deg, #48bb78, #38a169);
+            transition: width 0.4s ease;
+        }
+
+        #toast {
+            position: fixed; top: -60px; left: 50%; transform: translateX(-50%);
+            background: #333; color: #fff; padding: 12px 24px; border-radius: 30px;
+            font-size: 14px; font-weight: 600; box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+            transition: top 0.4s cubic-bezier(0.68, -0.55, 0.26, 1.55);
+            z-index: 100; white-space: nowrap;
+        }
+        /* ============================================================
+           DARK MODE
+           ============================================================ */
+        body.dark-mode, body.dark-mode html {
+            background: #12181f;
+        }
+        body.dark-mode .app-header {
+            background: #0a1622;
+        }
+        body.dark-mode #tela-contextos,
+        body.dark-mode #tela-disciplinas,
+        body.dark-mode #tela-assuntos,
+        body.dark-mode #tela-progresso,
+        body.dark-mode #tela-progresso > div {
+            background: #12181f !important;
+        }
+        body.dark-mode .selecao-titulo { color: #a0aec0 !important; }
+
+        body.dark-mode .card-contexto,
+        body.dark-mode .card-disciplina,
+        body.dark-mode .card-assunto,
+        body.dark-mode .contexto-analise-bloco,
+        body.dark-mode .painel-analise {
+            background: #1e2733 !important;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.35) !important;
+        }
+        body.dark-mode .painel-analise { background: #171f29 !important; }
+
+        body.dark-mode .card-contexto-nome,
+        body.dark-mode .card-disciplina-nome,
+        body.dark-mode .card-assunto-nome,
+        body.dark-mode .contexto-analise-titulo,
+        body.dark-mode .grafico-barra-label,
+        body.dark-mode .ponto-fraco-nome {
+            color: #e2e8f0 !important;
+        }
+        body.dark-mode .card-contexto-desc,
+        body.dark-mode .card-disciplina-progresso-label,
+        body.dark-mode .card-assunto-progresso-label,
+        body.dark-mode .grafico-barra-pct,
+        body.dark-mode .ponto-fraco-disc,
+        body.dark-mode .painel-analise-titulo {
+            color: #90a4b7 !important;
+        }
+        body.dark-mode .selo-frequentes { background: #44337a !important; }
+        body.dark-mode .selo-erradas    { background: #4a2323 !important; }
+        body.dark-mode .selo-espacada   { background: #1e3a5f !important; }
+        body.dark-mode .leitner-badge   { background: #2d3748 !important; color: #e2e8f0 !important; }
+        body.dark-mode .card-disciplina-barra-bg,
+        body.dark-mode .card-assunto-barra-bg,
+        body.dark-mode .grafico-barra-track {
+            background: #2d3748 !important;
+        }
+        body.dark-mode .contexto-analise-cabecalho:active { background: #26303d !important; }
+        body.dark-mode .ponto-fraco-item { background: #2a1a1a !important; }
+        body.dark-mode .btn-revisar-ponto-fraco { background: #6b46c1 !important; }
+
+        body.dark-mode .sub-header { background: #0a1622 !important; }
+
+        body.dark-mode #jsmind_container { background: #171f29 !important; }
+        body.dark-mode .app-footer { background: #1e2733 !important; }
+        body.dark-mode .btn-toggle-menu {
+            background: #2d3748 !important; color: #e2e8f0 !important; border-color: #4a5568 !important;
+        }
+        body.dark-mode .btn-reset { background: #4a5568 !important; color: #e2e8f0 !important; }
+        body.dark-mode .seletor-dropdown { background: #1e2733 !important; color: #e2e8f0 !important; }
+
+        body.dark-mode .progress-container { background: #2d3748 !important; }
+
+        /* Botão de alternância de tema */
+        .btn-dark-toggle {
+            background: #2d3748; color: white; border: none; border-radius: 8px;
+            padding: 6px 10px; font-size: 14px; cursor: pointer;
+            margin-left: 6px;
+        }
+        /* ============================================================
+           POMODORO
+           ============================================================ */
+        .pomodoro-fab {
+            position: static; margin-left: 6px; z-index: 500;
+            width: 34px; height: 34px; border-radius: 50%;
+            background: linear-gradient(135deg, #e53e3e, #c53030);
+            color: white; border: none; font-size: 16px;
+            box-shadow: 0 2px 6px rgba(0,0,0,0.25); cursor: pointer;
+            display: flex; align-items: center; justify-content: center;
+            font-family: 'Inter', sans-serif; flex-shrink: 0;
+        }
+        .pomodoro-fab:active { transform: scale(0.94); }
+        .pomodoro-fab.pomodoro-fab-rodando {
+            font-size: 10px; font-weight: 800; font-variant-numeric: tabular-nums;
+        }
+
+        .pomodoro-overlay {
+            position: fixed; inset: 0; background: rgba(10,14,20,0.6);
+            z-index: 600; display: flex; align-items: center; justify-content: center;
+            padding: 20px;
+        }
+        .pomodoro-panel {
+            background: white; border-radius: 20px; padding: 22px;
+            width: 100%; max-width: 340px; box-shadow: 0 16px 48px rgba(0,0,0,0.45);
+            display: flex; flex-direction: column; align-items: center; gap: 14px;
+        }
+        .pomodoro-panel-header {
+            width: 100%; display: flex; align-items: center; justify-content: space-between;
+        }
+        .pomodoro-panel-titulo { font-size: 16px; font-weight: 800; color: #1a202c; }
+        .pomodoro-fechar {
+            background: none; border: none; font-size: 18px; color: #718096; cursor: pointer;
+            width: 30px; height: 30px; border-radius: 50%; line-height: 1;
+        }
+        .pomodoro-fechar:active { background: #edf2f7; }
+
+        .pomodoro-mode-label {
+            font-size: 11px; font-weight: 800; letter-spacing: 0.12em;
+            padding: 5px 16px; border-radius: 99px; text-transform: uppercase;
+            background: #fed7d7; color: #c53030;
+        }
+        .pomodoro-mode-label.modo-pausa { background: #c6f6d5; color: #276749; }
+
+        .pomodoro-ring-wrap { position: relative; width: 210px; height: 210px; margin: 4px 0; }
+        .pomodoro-svg { width: 100%; height: 100%; transform: rotate(-90deg); }
+        .pomodoro-ring-bg { fill: none; stroke: #edf2f7; stroke-width: 12; }
+        .pomodoro-ring-fg {
+            fill: none; stroke: #e53e3e; stroke-width: 12; stroke-linecap: round;
+            transition: stroke-dashoffset 0.4s linear, stroke 0.4s ease;
+        }
+        .pomodoro-time {
+            position: absolute; inset: 0; display: flex; align-items: center; justify-content: center;
+            font-size: 42px; font-weight: 800; color: #1a202c; font-variant-numeric: tabular-nums;
+        }
+
+        .pomodoro-dots { display: flex; gap: 6px; }
+        .pomodoro-dot { font-size: 15px; opacity: 0.22; transition: opacity 0.2s; }
+        .pomodoro-dot.completo { opacity: 1; }
+
+        .pomodoro-controls { display: flex; align-items: center; gap: 16px; }
+        .pomodoro-btn-principal {
+            background: #e53e3e; color: white; border: none; border-radius: 99px;
+            padding: 13px 28px; font-size: 15px; font-weight: 800; cursor: pointer;
+            font-family: 'Inter', sans-serif; box-shadow: 0 4px 10px rgba(229,62,62,0.35);
+        }
+        .pomodoro-btn-principal:active { background: #c53030; }
+        .pomodoro-btn-secundario {
+            background: #edf2f7; color: #4a5568; border: none; border-radius: 50%;
+            width: 42px; height: 42px; font-size: 16px; cursor: pointer;
+        }
+        .pomodoro-btn-secundario:active { background: #e2e8f0; }
+
+        .pomodoro-config-toggle {
+            background: none; border: none; color: #718096; font-size: 12px; font-weight: 700; cursor: pointer;
+            font-family: 'Inter', sans-serif;
+        }
+        .pomodoro-config-painel {
+            width: 100%; display: flex; flex-direction: column; gap: 9px;
+            border-top: 1px solid #e2e8f0; padding-top: 12px;
+        }
+        .pomodoro-config-linha { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+        .pomodoro-config-linha label { font-size: 13px; color: #4a5568; }
+        .pomodoro-config-linha input {
+            width: 64px; padding: 6px 8px; border: 1px solid #cbd5e0; border-radius: 6px;
+            font-size: 14px; text-align: center; font-family: 'Inter', sans-serif;
+        }
+
+        body.dark-mode .pomodoro-panel { background: #1e2733; }
+        body.dark-mode .pomodoro-panel-titulo,
+        body.dark-mode .pomodoro-time { color: #e2e8f0; }
+        body.dark-mode .pomodoro-ring-bg { stroke: #2d3748; }
+        body.dark-mode .pomodoro-btn-secundario { background: #2d3748; color: #e2e8f0; }
+        body.dark-mode .pomodoro-btn-secundario:active { background: #364154; }
+        body.dark-mode .pomodoro-config-painel { border-top-color: #2d3748; }
+        body.dark-mode .pomodoro-config-linha label { color: #a0aec0; }
+        body.dark-mode .pomodoro-config-linha input { background: #12181f; border-color: #2d3748; color: #e2e8f0; }
+        body.dark-mode .pomodoro-fechar:active { background: #2d3748; }
+    </style>
+</head>
+<body>
+    <div id="toast">Notificação</div>
+
+    <div class="app-header">
+        <div style="display:flex; align-items:center; justify-content:space-between;">
+            <h1 style="margin:0; font-size:18px; font-weight:700;">Meu Estudo Ativo</h1>
+            <div style="display:flex; align-items:center;">
+                <button id="btnProgresso" onclick="mostrarTelaProgresso()" style="
+                    background:#38a169; color:white; border:none; border-radius:8px;
+                    padding:6px 12px; font-size:12px; font-weight:700; cursor:pointer;
+                    display:flex; align-items:center; gap:4px;">
+                    📊 Progresso
+                </button>
+                <button id="btnDarkMode" class="btn-dark-toggle" title="Alternar tema claro/escuro">🌙</button>
+                <button id="pomodoroFab" class="pomodoro-fab" title="Pomodoro" onclick="abrirPomodoro()">🍅</button>
+            </div>
+        </div>
+        <span id="progressText" style="display:none;">(0%)</span>
+    </div>
+    
+    <!-- NÍVEL 1: Contextos (Banca / Órgão / Geral) -->
+    <div id="tela-contextos" style="display:flex;">
+        <p class="selecao-titulo">🗂️ Como deseja estudar?</p>
+        <div id="lista-contextos"></div>
+    </div>
+
+    <!-- TELA DE PROGRESSO -->
+    <div id="tela-progresso" style="display:none; flex-direction:column; flex-grow:1; overflow:hidden;">
+        <div class="sub-header">
+            <button class="btn-voltar" id="btnVoltarProgresso">←</button>
+            <span class="sub-header-titulo">📊 Meu Progresso</span>
+        </div>
+        <div style="overflow-y:auto; flex-grow:1; padding:16px; display:flex; flex-direction:column; gap:14px; background:#f4f6f9;">
+            <button id="btnAlternarTudo" onclick="alternarTodosContextos()" style="background:#2b6cb0; color:white; border:none; border-radius:8px; padding:9px; font-size:12px; font-weight:700; cursor:pointer;">⬇️ Expandir tudo</button>
+            <div id="analise-por-contexto"></div>
+        </div>
+    </div>
+
+    <!-- NÍVEL 2: Disciplinas do contexto -->
+    <div id="tela-disciplinas" style="display:none; flex-direction:column; flex-grow:1; overflow:hidden;">
+        <div class="sub-header">
+            <button class="btn-voltar" id="btnVoltarContextos">←</button>
+            <span class="sub-header-titulo" id="disciplinasContextoNome"></span>
+        </div>
+        <div style="overflow-y:auto; flex-grow:1; padding:16px; display:flex; flex-direction:column; gap:12px;">
+            <p class="selecao-titulo">📚 Escolha uma disciplina</p>
+            <div id="lista-disciplinas"></div>
+        </div>
+    </div>
+
+    <!-- NÍVEL 3: Assuntos da disciplina -->
+    <div id="tela-assuntos" style="display:none; flex-direction:column; flex-grow:1; overflow:hidden;">
+        <div class="sub-header">
+            <button class="btn-voltar" id="btnVoltarDisciplinas">←</button>
+            <span class="sub-header-titulo" id="assuntosDisciplinaNome"></span>
+        </div>
+        <div class="lista-assuntos" id="lista-assuntos"></div>
+    </div>
+
+    <!-- TELA DE ESTUDO (mapa mental) -->
+    <div id="tela-estudo" style="display:none; flex-direction:column; flex-grow:1; overflow:hidden;">
+
+    <div class="seletor-container oculto" id="area-menu">
+        <select id="seletorDisciplina" class="seletor-dropdown"></select>
+        <select id="seletorAssunto" class="seletor-dropdown"></select>
+    </div>
+    
+    <div class="progress-container">
+        <div class="progress-bar" id="progressBar"></div>
+    </div>
+
+    <div id="painel-padrao">
+        <button class="btn-voltar" id="btnVoltarDisciplinasEstudo" title="Voltar para as disciplinas" style="background:#102a43; border-radius:8px; padding:6px 10px;">←</button>
+        <button class="btn-toggle-menu" id="btnVoltarInicio" title="Voltar às disciplinas" style="font-size:16px;">⌂</button>
+        <button class="btn-progresso" id="btnProgressoMapa" name="verProgressoMapa" aria-label="Ver Progresso no Mapa" title="Ver Progresso no Mapa">📊 Progresso</button>
+        
+        <div class="painel-grupo">
+            <button class="btn-ativar" id="btnAtivarAssuntos" name="reativarAssuntos" aria-label="Reativar Assuntos" title="Reativar Assuntos" style="display: none;">🔓 Reativar Assuntos</button>
+            <button class="btn-frequentes" id="btnRevisarFrequentes" name="maiorDificuldade" aria-label="Maior Dificuldade" title="Maior Dificuldade" style="display: none;">🚨 Maior Dificuldade</button>
+            <button class="btn-revisar" id="btnRevisarErradas" name="revisarErradas" aria-label="Revisar Erradas" title="Revisar Erradas" style="display: none;">Revisar Erradas</button>
+            <button class="btn-revisar" id="btnEspacada" name="revisaoEspacada" aria-label="Revisão Espaçada" title="Revisão Espaçada" style="display: none; background: #3182ce;">Revisão Espaçada</button>
+            <button class="btn-reset" id="btnReset" name="resetar" aria-label="Resetar" title="Resetar">↻ Resetar</button>
+            <span id="leitnerCaixaAtual" style="font-size:20px; display:none;" title="Caixa Leitner atual"></span>
+        </div>
+    </div>
+
+    <div id="jsmind_container"></div>
+
+    <div class="app-footer">
+        <div id="painel-revelar">
+            <button class="btn-spacebar" id="btnRevelar" name="spacebar" aria-label="Spacebar" title="Spacebar" autofocus>Iniciar</button>
+        </div>
+        <div id="painel-avaliacao" class="painel-botoes">
+            <button class="btn-errei" id="btnErrei" name="errei" aria-label="Errei" title="Errei">✖ Errei</button>
+            <button class="btn-acertei" id="btnAcertei" name="acertei" aria-label="Acertei" title="Acertei">✔ Acertei</button>
+        </div>
+    </div>
+
+    <audio id="somPalmas" src="https://www.myinstants.com/media/sounds/applause.mp3" preload="auto"></audio>
+
+    </div><!-- fim #tela-estudo -->
+
+    <!-- Catálogo central de disciplinas e assuntos -->
+    <script src="disciplinas.js"></script>
+    
+    <script type="text/javascript">
+        
+
+        let flashcards = {};
+        let assuntoAtualId = null;
+        let assuntoCarregado = null;
+        let original_mind_data_atual = null; 
+        
+        let noEmAvaliacao = null; 
+        let confeteDisparado = false; 
+        // Quando não-nula, a sessão de estudo do modo "padrao" fica restrita a essa
+        // caixa Leitner específica (usado pelo botão Resetar) — nem o progresso, nem
+        // a revelação de próximos cartões avançam pra outra caixa até ela ser concluída.
+        let caixaSessaoRestrita = null;
+        let modoAtual = 'padrao';
+        let isCompletado = false;
+
+        // INICIALIZAÇÃO DO MAPA COM ESPAÇAMENTOS APLICADOS
+        const jm = new jsMind({ 
+            container: 'jsmind_container', 
+            editable: true, 
+            theme: 'info',
+            layout: {
+                hspace: 60,  // Espaço horizontal aumentado para evitar colisão das linhas
+                vspace: 40,  // Espaço vertical aumentado
+                pspace: 20   
+            }
+        });
+
+        // ---- Navegação por tela ----
+        // ---- Navegação por tela (3 níveis) ----
+        let contextoAtualId = null;
+        let disciplinaAtualId = null;
+
+        // ---- Funções de análise de desempenho ----
+
+        function corDesempenho(pct) {
+            if (pct >= 80) return '#38a169'; // verde
+            if (pct >= 50) return '#d69e2e'; // amarelo
+            return '#e53e3e';                // vermelho
+        }
+
+        function calcularErrosTotaisAssunto(assuntoId) {
+            let erros = 0;
+            for (const id in progressoSalvo) {
+                if (progressoSalvo[id].assuntoId === assuntoId) {
+                    erros += progressoSalvo[id].errosCount || 0;
+                }
+            }
+            for (const id in flashcards) {
+                if (flashcards[id].assuntoId === assuntoId) {
+                    const jaNoSalvo = progressoSalvo[id];
+                    if (!jaNoSalvo) erros += flashcards[id].errosCount || 0;
+                }
+            }
+            return erros;
+        }
+
+        function pontuacaoFraqueza(pct, erros) {
+            // Quanto menor o %, pior. Quanto mais erros, pior.
+            // Normaliza: 0 = forte, 100 = muito fraco
+            return (100 - pct) + (erros * 3);
+        }
+
+        function renderizarAnaliseGeral() {
+            const container = document.getElementById('analise-por-contexto');
+            container.innerHTML = '';
+
+            const contextosComDados = CATALOGO.filter(c => c.disciplinas && c.disciplinas.length > 0);
+
+            if (contextosComDados.length === 0) {
+                container.innerHTML = '<p style="font-size:13px;color:#718096;text-align:center;padding:16px 0;">Nenhuma disciplina cadastrada ainda.</p>';
+                return;
+            }
+
+            contextosComDados.forEach(ctx => {
+                // ---- Gráfico de barras por disciplina deste contexto ----
+                let graficoHtml = '';
+                ctx.disciplinas.forEach(disc => {
+                    const pct = calcularProgressoDisciplina(disc);
+                    const cor = corDesempenho(pct);
+                    graficoHtml += `
+                        <div class="grafico-barra-linha">
+                            <span class="grafico-barra-label">${disc.icone || '📖'} ${disc.nome}</span>
+                            <div class="grafico-barra-track">
+                                <div class="grafico-barra-fill" style="width:${pct}%; background:${cor};"></div>
+                            </div>
+                            <span class="grafico-barra-pct">${pct}%</span>
+                        </div>`;
+                });
+
+                // ---- Pontos fracos deste contexto ----
+                const todos = [];
+                ctx.disciplinas.forEach(disc => {
+                    disc.assuntos.forEach(ass => {
+                        const pct    = calcularProgressoAssunto(ass.id);
+                        const erros  = calcularErrosTotaisAssunto(ass.id);
+                        const total  = totalCartoesPorAssunto[ass.id] || 0;
+                        if (total === 0) return;
+                        if (erros < 1) return; // só entra na lista com pelo menos 1 erro
+                        todos.push({ titulo: ass.titulo, disc: disc.nome, pct, erros,
+                            ctxId: ctx.id, discId: disc.id, assId: ass.id,
+                            score: pontuacaoFraqueza(pct, erros) });
+                    });
+                });
+
+                let pontosFracosHtml = '';
+                if (todos.length === 0) {
+                    pontosFracosHtml = '<p style="font-size:13px;color:#718096;text-align:center;padding:8px 0;">Estude alguns cartões deste contexto para ver os pontos fracos aqui.</p>';
+                } else {
+                    todos.sort((a, b) => b.score - a.score);
+                    const medalhas = ['🥇','🥈','🥉','4️⃣','5️⃣'];
+                    todos.slice(0, 5).forEach((item, i) => {
+                        const temErro = item.erros > 0;
+                        pontosFracosHtml += `
+                            <div class="ponto-fraco-item">
+                                <span class="ponto-fraco-rank">${medalhas[i]}</span>
+                                <div class="ponto-fraco-info">
+                                    <div class="ponto-fraco-nome">${item.titulo}</div>
+                                    <div class="ponto-fraco-disc">${item.disc} · ${item.pct}% de acerto</div>
+                                </div>
+                                ${temErro ? `<span class="ponto-fraco-badge">❌ ${item.erros} erros</span>` : ''}
+                                ${temErro ? `<button class="btn-revisar-ponto-fraco" onclick="abrirAssuntoEmMaiorDificuldade('${item.ctxId}','${item.discId}','${item.assId}')">🚨 Revisar</button>` : ''}
+                            </div>`;
+                    });
+                }
+
+                const idSeguro = ctx.id.replace(/[^a-zA-Z0-9_-]/g, '');
+
+                container.innerHTML += `
+                    <div class="contexto-analise-bloco">
+                        <button class="contexto-analise-cabecalho" onclick="alternarContextoAnalise('${idSeguro}')">
+                            <span class="contexto-analise-seta" id="seta-${idSeguro}">▶</span>
+                            <span class="contexto-analise-titulo">${ctx.icone || '🗂️'} ${ctx.nome}</span>
+                        </button>
+                        <div class="contexto-analise-conteudo" id="conteudo-${idSeguro}" style="display:none;">
+                            <div class="painel-analise">
+                                <p class="painel-analise-titulo">📊 Desempenho por disciplina</p>
+                                ${graficoHtml}
+                            </div>
+                            <div class="painel-analise">
+                                <p class="painel-analise-titulo">🔴 Pontos mais fracos</p>
+                                <div class="pontos-fracos-lista">${pontosFracosHtml}</div>
+                            </div>
+                        </div>
+                    </div>`;
+            });
+        }
+
+        function alternarContextoAnalise(idSeguro) {
+            const conteudo = document.getElementById('conteudo-' + idSeguro);
+            const seta = document.getElementById('seta-' + idSeguro);
+            if (!conteudo) return;
+            const abrindo = conteudo.style.display === 'none';
+            conteudo.style.display = abrindo ? 'flex' : 'none';
+            if (seta) seta.textContent = abrindo ? '▼' : '▶';
+        }
+
+        function alternarTodosContextos() {
+            const btn = document.getElementById('btnAlternarTudo');
+            const blocos = document.querySelectorAll('.contexto-analise-conteudo');
+            if (blocos.length === 0) return;
+
+            // Decide a ação com base no estado atual: se algum estiver fechado, expande tudo;
+            // se todos já estiverem abertos, recolhe tudo.
+            const algumFechado = Array.from(blocos).some(el => el.style.display === 'none');
+
+            blocos.forEach(el => el.style.display = algumFechado ? 'flex' : 'none');
+            document.querySelectorAll('.contexto-analise-seta').forEach(el => el.textContent = algumFechado ? '▼' : '▶');
+
+            if (btn) btn.textContent = algumFechado ? '⬆️ Recolher tudo' : '⬇️ Expandir tudo';
+        }
+
+        function renderizarRankingAssuntos(contextoId, disciplinaId) {
+            const ctx  = CATALOGO.find(c => c.id === contextoId);
+            const disc = ctx && ctx.disciplinas.find(d => d.id === disciplinaId);
+            if (!disc) return;
+
+            const lista = document.getElementById('lista-assuntos');
+            lista.innerHTML = '';
+
+            // Prioriza pelo número de cartões na Caixa 1 (mais cartões na Caixa 1 = topo da lista)
+            const assuntosComDist = disc.assuntos.map(assunto => {
+                const pct    = calcularProgressoPrioridadeAssunto(assunto.id);
+                const erros  = calcularErrosTotaisAssunto(assunto.id);
+                const total  = totalCartoesPorAssunto[assunto.id] || 0;
+                const dist   = calcularDistribuicaoLeitnerAssunto(assunto.id);
+                const respondidos = Object.values(progressoSalvo)
+                    .filter(e => e.assuntoId === assunto.id).length;
+                return { assunto, pct, erros, total, dist, respondidos,
+                    caixa1: dist[0], score: respondidos > 0 ? pontuacaoFraqueza(pct, erros) : -1 };
+            });
+
+            // Ordena comparando primeiro a Caixa 1; se empatar, decide pela Caixa 2;
+            // se empatar de novo, pela Caixa 3, e assim sucessivamente até a Caixa 5.
+            assuntosComDist.sort((a, b) => {
+                for (let i = 0; i < 5; i++) {
+                    if (b.dist[i] !== a.dist[i]) return b.dist[i] - a.dist[i];
+                }
+                return 0;
+            });
+
+            assuntosComDist.forEach((item, i) => {
+                const { assunto, pct, erros } = item;
+                const concluido = verificarAssuntoConcluido(assunto.id);
+                const cor = item.score < 0 ? '#a0aec0' : corDesempenho(pct);
+                const semPendencia = item.dist.every(v => v === 0);
+                const rankLabel = semPendencia ? '—'
+                    : i === 0 ? '🔴' : i === 1 ? '🟡' : '🟢';
+
+                const card = document.createElement('div');
+                card.className = 'card-assunto';
+                const selos = htmlSelosRevisao(calcularSinalizacoesAssunto(assunto.id));
+                const leitner = htmlDistribuicaoLeitner(item.dist, calcularDistribuicaoPendenteAssunto(assunto.id));
+                const pendentes = calcularPendentesHojeAssunto(assunto.id);
+                card.innerHTML = `
+                    ${htmlBadgeNotificacao(pendentes)}
+                    <div class="card-assunto-topo">
+                        <span class="card-assunto-icone">${concluido ? '✅' : rankLabel}</span>
+                        <span class="card-assunto-nome">${assunto.titulo}</span>
+                        ${erros > 0 ? `<span class="card-assunto-erros">❌ ${erros}</span>` : ''}
+                    </div>
+                    <div class="card-assunto-progresso-label">
+                        <span>${item.score < 0 ? 'Não iniciado' : 'Acerto'}</span>
+                        <span>${item.score < 0 ? '' : pct + '%'}</span>
+                    </div>
+                    <div class="card-assunto-barra-bg">
+                        <div class="card-assunto-barra-fill" style="width:${pct}%; background:${cor};"></div>
+                    </div>
+                    ${selos ? `<div class="selos-revisao-linha">${selos}</div>` : ''}
+                    ${leitner ? `<div class="leitner-linha">${leitner}</div>` : ''}
+                `;
+                card.addEventListener('click', () => entrarNoEstudo(contextoId, disciplinaId, assunto.id));
+                lista.appendChild(card);
+            });
+        }
+
+        function mostrarTelaContextos() {
+            document.getElementById('tela-contextos').style.display   = 'flex';
+            document.getElementById('tela-disciplinas').style.display = 'none';
+            document.getElementById('tela-assuntos').style.display    = 'none';
+            document.getElementById('tela-estudo').style.display      = 'none';
+            document.getElementById('tela-progresso').style.display   = 'none';
+            renderizarCardsContexto();
+        }
+
+        function mostrarTelaProgresso() {
+            document.getElementById('tela-contextos').style.display   = 'none';
+            document.getElementById('tela-disciplinas').style.display = 'none';
+            document.getElementById('tela-assuntos').style.display    = 'none';
+            document.getElementById('tela-estudo').style.display      = 'none';
+            document.getElementById('tela-progresso').style.display   = 'flex';
+
+            renderizarAnaliseGeral();
+
+            // Como tudo recomeça recolhido, reseta o rótulo do botão de alternância
+            const btn = document.getElementById('btnAlternarTudo');
+            if (btn) btn.textContent = '⬇️ Expandir tudo';
+        }
+
+        // ---- Último acesso às disciplinas (pra ordenar a lista com a mais recente no topo) ----
+        let ultimoAcessoDisciplinas = {};
+
+        function carregarUltimoAcessoDisciplinas() {
+            try {
+                ultimoAcessoDisciplinas = JSON.parse(localStorage.getItem('estudo_ativo_ultimo_acesso_disciplina') || '{}');
+            } catch(e) {
+                ultimoAcessoDisciplinas = {};
+            }
+        }
+
+        function registrarAcessoDisciplina(disciplinaId) {
+            ultimoAcessoDisciplinas[disciplinaId] = Date.now();
+            localStorage.setItem('estudo_ativo_ultimo_acesso_disciplina', JSON.stringify(ultimoAcessoDisciplinas));
+        }
+
+        function ordenarDisciplinasPorUltimoAcesso(disciplinas) {
+            return [...disciplinas].sort((a, b) => {
+                const acessoA = ultimoAcessoDisciplinas[a.id] || 0;
+                const acessoB = ultimoAcessoDisciplinas[b.id] || 0;
+                return acessoB - acessoA; // mais recente primeiro
+            });
+        }
+
+        function mostrarTelaDisciplinas(contextoId) {
+            contextoAtualId = contextoId;
+            const ctx = CATALOGO.find(c => c.id === contextoId);
+            if (!ctx) return;
+
+            document.getElementById('disciplinasContextoNome').textContent = ctx.icone + ' ' + ctx.nome;
+            document.getElementById('tela-contextos').style.display   = 'none';
+            document.getElementById('tela-disciplinas').style.display = 'flex';
+            document.getElementById('tela-assuntos').style.display    = 'none';
+            document.getElementById('tela-estudo').style.display      = 'none';
+
+            const container = document.getElementById('lista-disciplinas');
+            container.innerHTML = '';
+            const cores = ['#2b6cb0','#276749','#744210','#553c9a','#97266d','#c05621'];
+
+            if (!ctx.disciplinas || ctx.disciplinas.length === 0) {
+                container.innerHTML = '<p style="color:#718096; font-size:14px; text-align:center; margin-top:24px;">Nenhuma disciplina cadastrada ainda.</p>';
+                return;
+            }
+
+            const disciplinasOrdenadas = ordenarDisciplinasPorUltimoAcesso(ctx.disciplinas);
+
+            disciplinasOrdenadas.forEach((disc, i) => {
+                const pct = calcularProgressoPrioridadeDisciplina(disc);
+                const cor = cores[i % cores.length];
+                const selos = htmlSelosRevisao(calcularSinalizacoesDisciplina(disc));
+                const leitner = htmlDistribuicaoLeitner(calcularDistribuicaoLeitnerDisciplina(disc), calcularDistribuicaoPendenteDisciplina(disc));
+                const pendentes = calcularPendentesHojeDisciplina(disc);
+                const card = document.createElement('div');
+                card.className = 'card-disciplina';
+                card.style.borderLeftColor = cor;
+                card.innerHTML = `
+                    ${htmlBadgeNotificacao(pendentes)}
+                    <div class="card-disciplina-nome">${disc.icone || '📖'} ${disc.nome}</div>
+                    <div class="card-disciplina-progresso-label">
+                        <span>Progresso geral</span><span>${pct}%</span>
+                    </div>
+                    <div class="card-disciplina-barra-bg">
+                        <div class="card-disciplina-barra-fill" style="width:${pct}%; background:linear-gradient(90deg,${cor}aa,${cor});"></div>
+                    </div>
+                    ${selos ? `<div class="selos-revisao-linha">${selos}</div>` : ''}
+                    ${leitner ? `<div class="leitner-linha">${leitner}</div>` : ''}
+                `;
+                card.addEventListener('click', () => mostrarTelaAssuntos(contextoId, disc.id));
+                container.appendChild(card);
+            });
+        }
+
+        function mostrarTelaAssuntos(contextoId, disciplinaId) {
+            registrarAcessoDisciplina(disciplinaId);
+            disciplinaAtualId = disciplinaId;
+            const ctx  = CATALOGO.find(c => c.id === contextoId);
+            const disc = ctx && ctx.disciplinas.find(d => d.id === disciplinaId);
+            if (!disc) return;
+
+            document.getElementById('assuntosDisciplinaNome').textContent = (disc.icone || '') + ' ' + disc.nome;
+            document.getElementById('tela-contextos').style.display   = 'none';
+            document.getElementById('tela-disciplinas').style.display = 'none';
+            document.getElementById('tela-assuntos').style.display    = 'flex';
+            document.getElementById('tela-estudo').style.display      = 'none';
+
+            renderizarRankingAssuntos(contextoId, disciplinaId);
+        }
+
+        function calcularProgressoContexto(ctx) {
+            if (!ctx || !ctx.disciplinas || ctx.disciplinas.length === 0) return 0;
+            let total = 0, acertos = 0;
+            ctx.disciplinas.forEach(disc => {
+                disc.assuntos.forEach(assuntoCat => {
+                    const totalDoAssunto = totalCartoesPorAssunto[assuntoCat.id] || 0;
+                    total += totalDoAssunto;
+                });
+            });
+            for (const cartaoId in progressoSalvo) {
+                const entrada = progressoSalvo[cartaoId];
+                if (!entrada || entrada.estado !== 2) continue;
+                const pertence = ctx.disciplinas.some(disc =>
+                    disc.assuntos.some(a => a.id === entrada.assuntoId)
+                );
+                if (pertence) acertos++;
+            }
+            return total > 0 ? Math.round((acertos / total) * 100) : 0;
+        }
+
+        function renderizarCardsContexto() {
+            const container = document.getElementById('lista-contextos');
+            container.innerHTML = '';
+            const coresBorda = ['#553c9a','#2b6cb0','#276749','#c05621','#97266d'];
+            CATALOGO.forEach((ctx, i) => {
+                const card = document.createElement('div');
+                card.className = 'card-contexto';
+                card.style.borderLeftColor = coresBorda[i % coresBorda.length];
+                const pct = calcularProgressoPrioridadeContexto(ctx);
+                const temDisciplinas = ctx.disciplinas && ctx.disciplinas.length > 0;
+                const selos = temDisciplinas ? htmlSelosRevisao(calcularSinalizacoesContexto(ctx)) : '';
+                const leitner = temDisciplinas ? htmlDistribuicaoLeitner(calcularDistribuicaoLeitnerContexto(ctx), calcularDistribuicaoPendenteContexto(ctx)) : '';
+                const pendentes = temDisciplinas ? calcularPendentesHojeContexto(ctx) : 0;
+                card.innerHTML = `
+                    ${htmlBadgeNotificacao(pendentes)}
+                    <span class="card-contexto-icone">${ctx.icone}</span>
+                    <div class="card-contexto-info">
+                        <div class="card-contexto-nome">${ctx.nome}</div>
+                        ${ctx.descricao ? `<div class="card-contexto-desc">${ctx.descricao}</div>` : ''}
+                        ${selos ? `<div class="selos-revisao-linha">${selos}</div>` : ''}
+                        ${leitner ? `<div class="leitner-linha">${leitner}</div>` : ''}
+                    </div>
+                    ${temDisciplinas ? `<span class="card-contexto-pct" style="color:${corDesempenho(pct)};">${pct}%</span>` : ''}
+                `;
+                card.addEventListener('click', () => mostrarTelaDisciplinas(ctx.id));
+                container.appendChild(card);
+            });
+        }
+
+        function entrarNoEstudo(contextoId, disciplinaId, assuntoId, aoConcluir) {
+            const ctx  = CATALOGO.find(c => c.id === contextoId);
+            const disc = ctx && ctx.disciplinas.find(d => d.id === disciplinaId);
+            const assuntoCatalogo = disc && disc.assuntos.find(a => a.id === assuntoId);
+            if (!assuntoCatalogo) return;
+
+            registrarAcessoDisciplina(disciplinaId);
+
+            function finalizarCarregamentoAssunto() {
+                if (typeof MEU_ASSUNTO === 'undefined' || !MEU_ASSUNTO) {
+                    mostrarToast('❌ Arquivo do assunto inválido ou vazio.', '#e53e3e');
+                    return;
+                }
+                assuntoCarregado = MEU_ASSUNTO;
+
+                assuntoCarregado.topicos.forEach(topico => {
+                    topico.cartoes.forEach(cartao => {
+                        if (!flashcards[cartao.id]) {
+                            flashcards[cartao.id] = {
+                                assuntoId: assuntoCarregado.id,
+                                estado: 0, proximaRevisao: 0, jaRespondido: false,
+                                emSessao: false, isErro: false, errosCount: 0,
+                                acertosConta: 0, ultimaResposta: null, caixaLeitner: 1,
+                                ultimaMudancaCaixa: 0, passoEspacado: 0, acertosSeguidos: 0,
+                                ultimoDiaAcertoContado: 0, caixaPendente: null, diaRespondido: 0,
+                                dica: cartao.dica, conteudo: cartao.conteudo
+                            };
+                        } else {
+                            flashcards[cartao.id].dica = cartao.dica;
+                            flashcards[cartao.id].conteudo = cartao.conteudo;
+                        }
+                    });
+                });
+
+                migrarAssuntoIdNoProgresso(assuntoCarregado.id);
+                aplicarProgressoSalvo(assuntoCarregado.id);
+
+                document.getElementById('tela-contextos').style.display   = 'none';
+                document.getElementById('tela-disciplinas').style.display = 'none';
+                document.getElementById('tela-assuntos').style.display    = 'none';
+                document.getElementById('tela-progresso').style.display   = 'none';
+                document.getElementById('tela-estudo').style.display      = 'flex';
+
+                const selDisciplina = document.getElementById('seletorDisciplina');
+                const selAssunto    = document.getElementById('seletorAssunto');
+                selDisciplina.value = disciplinaId;
+                atualizarMenuAssuntos(disciplinaId);
+                selAssunto.value = assuntoId;
+                carregarMapaAssunto(assuntoId);
+
+                if (typeof aoConcluir === 'function') aoConcluir();
+            }
+
+            // Remove script anterior e limpa variável global para permitir recarregar outro assunto
+            const scriptAnterior = document.getElementById('script-assunto');
+            if (scriptAnterior) scriptAnterior.remove();
+            try { delete window.MEU_ASSUNTO; } catch (e) { window.MEU_ASSUNTO = undefined; }
+
+            const script = document.createElement('script');
+            script.id = 'script-assunto';
+            script.src = assuntoCatalogo.arquivo + '?v=' + Date.now();
+            script.onload = finalizarCarregamentoAssunto;
+            script.onerror = () => {
+                mostrarToast('❌ Arquivo do assunto não encontrado: ' + assuntoCatalogo.arquivo, '#e53e3e');
+            };
+            document.head.appendChild(script);
+        }
+
+        // Abre um assunto direto no modo "Maior Dificuldade" (usado pelos links
+        // de pontos fracos na tela de Progresso)
+        function abrirAssuntoEmMaiorDificuldade(contextoId, disciplinaId, assuntoId) {
+            entrarNoEstudo(contextoId, disciplinaId, assuntoId, () => {
+                const btn = document.getElementById('btnRevisarFrequentes');
+                if (btn) btn.click();
+            });
+        }
+
+        // Verifica quais modos de revisão têm cartões pendentes num assunto,
+        // usando o progresso persistido (funciona mesmo sem o assunto estar aberto)
+        function calcularSinalizacoesAssunto(assuntoId) {
+            const agora = Date.now();
+            const sinal = { espacada: false, erradas: false, frequentes: false };
+
+            for (const cartaoId in progressoSalvo) {
+                const entrada = progressoSalvo[cartaoId];
+                if (!entrada || entrada.assuntoId !== assuntoId) continue;
+                if (entrada.proximaRevisao > 0 && agora >= entrada.proximaRevisao) sinal.espacada = true;
+                if (entrada.isErro) sinal.erradas = true;
+                if (aindaEhPontoFraco(entrada)) sinal.frequentes = true;
+            }
+
+            // Também considera os flashcards em memória (assunto aberto na sessão atual),
+            // caso ainda não tenham sido persistidos
+            for (const cartaoId in flashcards) {
+                const card = flashcards[cartaoId];
+                if (card.assuntoId !== assuntoId) continue;
+                if (card.proximaRevisao > 0 && agora >= card.proximaRevisao) sinal.espacada = true;
+                if (card.isErro) sinal.erradas = true;
+                if (aindaEhPontoFraco(card)) sinal.frequentes = true;
+            }
+
+            return sinal;
+        }
+
+        function calcularSinalizacoesDisciplina(disc) {
+            const sinal = { espacada: false, erradas: false, frequentes: false };
+            disc.assuntos.forEach(ass => {
+                const s = calcularSinalizacoesAssunto(ass.id);
+                if (s.espacada) sinal.espacada = true;
+                if (s.erradas) sinal.erradas = true;
+                if (s.frequentes) sinal.frequentes = true;
+            });
+            return sinal;
+        }
+
+        function calcularSinalizacoesContexto(ctx) {
+            const sinal = { espacada: false, erradas: false, frequentes: false };
+            (ctx.disciplinas || []).forEach(disc => {
+                const s = calcularSinalizacoesDisciplina(disc);
+                if (s.espacada) sinal.espacada = true;
+                if (s.erradas) sinal.erradas = true;
+                if (s.frequentes) sinal.frequentes = true;
+            });
+            return sinal;
+        }
+
+        // Gera o HTML dos selos (badges) de sinalização a partir de um objeto { espacada, erradas, frequentes }
+        function htmlSelosRevisao(sinal) {
+            let html = '';
+            if (sinal.frequentes) html += '<span class="selo-revisao selo-frequentes" title="Tem cartões em Maior Dificuldade">🚨</span>';
+            if (sinal.erradas)    html += '<span class="selo-revisao selo-erradas" title="Tem cartões para Revisar Erradas">🔄</span>';
+            if (sinal.espacada)   html += '<span class="selo-revisao selo-espacada" title="Tem cartões para Revisão Espaçada">⏳</span>';
+            return html;
+        }
+        // ---- Sistema Leitner (5 caixas) ----
+        // Caixa 1 = recém-visto/errado recentemente, Caixa 5 = dominado
+        const LEITNER_ICONES = ['🟥', '🟧', '🟨', '🟩', '🟦'];
+        const LEITNER_NOMES  = ['Caixa 1', 'Caixa 2', 'Caixa 3', 'Caixa 4', 'Caixa 5'];
+        // Um cartão só pode trocar de caixa 1 vez por "dia lógico" (que começa às 4h da manhã,
+        // igual ao horário usado na Revisão Espaçada). Duas datas caem no mesmo dia lógico
+        // se, depois de voltar 4h no relógio, tiverem o mesmo ano/mês/dia.
+        function diaLogicoLeitner(timestamp) {
+            const ajustado = new Date(timestamp - 4 * 60 * 60 * 1000);
+            return `${ajustado.getFullYear()}-${ajustado.getMonth()}-${ajustado.getDate()}`;
+        }
+
+        function estaNoMesmoDiaLeitner(timestampAntigo, agora) {
+            if (!timestampAntigo) return false;
+            return diaLogicoLeitner(timestampAntigo) === diaLogicoLeitner(agora);
+        }
+
+        // Diz se um cartão já foi respondido (certo ou errado) no dia lógico atual —
+        // usa a tag "diaRespondido", separada do "estado" (que é só da sessão em
+        // memória e não volta a 0 sozinho quando o dia vira).
+        function foiRespondidoHoje(entradaOuCard) {
+            if (!entradaOuCard) return false;
+            return estaNoMesmoDiaLeitner(entradaOuCard.diaRespondido, Date.now());
+        }
+
+        // Aplica, de uma entrada de progresso (progressoSalvo[id] ou um flashcard), a
+        // mudança de caixa que ficou pendente desde a última resposta — mas só se já
+        // virou o dia lógico (depois das 4h) desde então. Retorna true se aplicou algo.
+        function aplicarMudancaCaixaPendente(entrada, agora) {
+            if (!entrada || entrada.caixaPendente == null) return false;
+            if (estaNoMesmoDiaLeitner(entrada.ultimaMudancaCaixa, agora)) return false;
+            entrada.caixaLeitner = entrada.caixaPendente;
+            entrada.caixaPendente = null;
+            return true;
+        }
+
+        // Varre todo o progresso salvo (todas as disciplinas/assuntos) aplicando
+        // mudanças de caixa pendentes cujo dia lógico já virou. Roda na inicialização
+        // do app para que os badges (Contexto/Disciplina/Assunto) fiquem sempre corretos,
+        // mesmo em assuntos que não foram abertos nesta sessão.
+        function aplicarMudancasCaixaPendentesGlobal() {
+            const agora = Date.now();
+            let alterou = false;
+            for (const id in progressoSalvo) {
+                if (aplicarMudancaCaixaPendente(progressoSalvo[id], agora)) alterou = true;
+            }
+            if (alterou) {
+                localStorage.setItem('estudo_ativo_global_v5', JSON.stringify(progressoSalvo));
+            }
+        }
+
+        // Conta quantos cartões de um assunto ainda estão pendentes de resposta
+        // (nunca respondidos, ou marcados como errados aguardando nova tentativa).
+        // Isso é diferente da distribuição por caixa, que mostra o histórico completo.
+        function calcularPendentesHojeAssunto(assuntoId) {
+            let total = totalCartoesPorAssunto[assuntoId] || 0;
+            let acertos = 0;
+
+            for (const cartaoId in progressoSalvo) {
+                const entrada = progressoSalvo[cartaoId];
+                if (entrada && entrada.assuntoId === assuntoId && entrada.estado === 2) acertos++;
+            }
+
+            // Fallback: metadados ainda não carregados — usa flashcards em memória
+            if (total === 0) {
+                total = 0; acertos = 0;
+                for (const key in flashcards) {
+                    if (flashcards[key].assuntoId === assuntoId) {
+                        total++;
+                        if (flashcards[key].estado === 2) acertos++;
+                    }
+                }
+            }
+
+            return Math.max(total - acertos, 0);
+        }
+
+        function calcularPendentesHojeDisciplina(disc) {
+            return disc.assuntos.reduce((soma, ass) => soma + calcularPendentesHojeAssunto(ass.id), 0);
+        }
+
+        function calcularPendentesHojeContexto(ctx) {
+            return (ctx.disciplinas || []).reduce((soma, disc) => soma + calcularPendentesHojeDisciplina(disc), 0);
+        }
+
+        // Gera o HTML do badge de notificação (bolinha vermelha com número)
+        function htmlBadgeNotificacao(pendentes) {
+            if (!pendentes || pendentes <= 0) return '';
+            const texto = pendentes > 99 ? '99+' : pendentes;
+            return `<span class="badge-notificacao">${texto}</span>`;
+        }
+
+        function calcularDistribuicaoLeitnerAssunto(assuntoId) {
+            const dist = [0, 0, 0, 0, 0];
+            const contados = new Set();
+
+            for (const cartaoId in progressoSalvo) {
+                const entrada = progressoSalvo[cartaoId];
+                if (!entrada || entrada.assuntoId !== assuntoId) continue;
+                const caixa = Math.min(Math.max(entrada.caixaLeitner || 1, 1), 5);
+                dist[caixa - 1]++;
+                contados.add(cartaoId);
+            }
+            for (const cartaoId in flashcards) {
+                if (contados.has(cartaoId)) continue;
+                const card = flashcards[cartaoId];
+                if (card.assuntoId !== assuntoId) continue;
+                const caixa = Math.min(Math.max(card.caixaLeitner || 1, 1), 5);
+                dist[caixa - 1]++;
+                contados.add(cartaoId);
+            }
+
+            // Cartões nunca respondidos ainda não têm registro salvo — entram na Caixa 1
+            const total = totalCartoesPorAssunto[assuntoId] || 0;
+            const somados = dist.reduce((a, b) => a + b, 0);
+            const restantes = Math.max(total - somados, 0);
+            dist[0] += restantes;
+
+            return dist;
+        }
+
+        function calcularDistribuicaoLeitnerDisciplina(disc) {
+            const total = [0, 0, 0, 0, 0];
+            disc.assuntos.forEach(ass => {
+                const d = calcularDistribuicaoLeitnerAssunto(ass.id);
+                d.forEach((v, i) => total[i] += v);
+            });
+            return total;
+        }
+
+        function calcularDistribuicaoLeitnerContexto(ctx) {
+            const total = [0, 0, 0, 0, 0];
+            (ctx.disciplinas || []).forEach(disc => {
+                const d = calcularDistribuicaoLeitnerDisciplina(disc);
+                d.forEach((v, i) => total[i] += v);
+            });
+            return total;
+        }
+
+        // Distribuição por caixa considerando SÓ os cartões ainda pendentes de resposta
+        // (estado !== 2). É a partir daqui que descobrimos qual caixa precisa de atenção agora.
+        // Distribuição por caixa considerando SÓ os cartões ainda não respondidos HOJE
+        // (usa a tag diaRespondido, não o "estado" — que fica em 2/correto de sessões
+        // passadas até alguém clicar em Resetar). É a partir daqui que descobrimos qual
+        // caixa precisa de atenção agora, mesmo logo depois da virada do dia às 4h.
+        function calcularDistribuicaoPendenteAssunto(assuntoId) {
+            const dist = [0, 0, 0, 0, 0];
+            const contados = new Set();
+
+            for (const cartaoId in progressoSalvo) {
+                const entrada = progressoSalvo[cartaoId];
+                if (!entrada || entrada.assuntoId !== assuntoId) continue;
+                contados.add(cartaoId);
+                if (!foiRespondidoHoje(entrada)) {
+                    const caixa = Math.min(Math.max(entrada.caixaLeitner || 1, 1), 5);
+                    dist[caixa - 1]++;
+                }
+            }
+            for (const cartaoId in flashcards) {
+                if (contados.has(cartaoId)) continue;
+                const card = flashcards[cartaoId];
+                if (card.assuntoId !== assuntoId) continue;
+                contados.add(cartaoId);
+                if (!foiRespondidoHoje(card)) {
+                    const caixa = Math.min(Math.max(card.caixaLeitner || 1, 1), 5);
+                    dist[caixa - 1]++;
+                }
+            }
+
+            // Cartões nunca respondidos nem salvos: contam como pendentes na Caixa 1
+            const total = totalCartoesPorAssunto[assuntoId] || 0;
+            const restantes = Math.max(total - contados.size, 0);
+            dist[0] += restantes;
+
+            return dist;
+        }
+
+        function calcularDistribuicaoPendenteDisciplina(disc) {
+            const total = [0, 0, 0, 0, 0];
+            disc.assuntos.forEach(ass => {
+                const d = calcularDistribuicaoPendenteAssunto(ass.id);
+                d.forEach((v, i) => total[i] += v);
+            });
+            return total;
+        }
+
+        function calcularDistribuicaoPendenteContexto(ctx) {
+            const total = [0, 0, 0, 0, 0];
+            (ctx.disciplinas || []).forEach(disc => {
+                const d = calcularDistribuicaoPendenteDisciplina(disc);
+                d.forEach((v, i) => total[i] += v);
+            });
+            return total;
+        }
+
+        // A caixa prioritária é a menor caixa (1 a 5) que ainda tem cartão pendente.
+        // Assim que ela zera, o foco "anda" automaticamente pra próxima caixa com pendência.
+        function caixaPrioritaria(distPendente) {
+            for (let i = 0; i < 5; i++) {
+                if (distPendente[i] > 0) return i + 1;
+            }
+            return null;
+        }
+
+        // Conta quantos cartões de um assunto, especificamente dentro de uma caixa alvo,
+        // já foram acertados (estado === 2). Usado pra medir o progresso da caixa prioritária.
+        function contarAcertosNaCaixaAssunto(assuntoId, caixaAlvo) {
+            let acertos = 0;
+            const contados = new Set();
+
+            for (const cartaoId in progressoSalvo) {
+                const entrada = progressoSalvo[cartaoId];
+                if (!entrada || entrada.assuntoId !== assuntoId) continue;
+                contados.add(cartaoId);
+                const caixa = Math.min(Math.max(entrada.caixaLeitner || 1, 1), 5);
+                if (caixa === caixaAlvo && entrada.estado === 2) acertos++;
+            }
+            for (const cartaoId in flashcards) {
+                if (contados.has(cartaoId)) continue;
+                const card = flashcards[cartaoId];
+                if (card.assuntoId !== assuntoId) continue;
+                const caixa = Math.min(Math.max(card.caixaLeitner || 1, 1), 5);
+                if (caixa === caixaAlvo && card.estado === 2) acertos++;
+            }
+            return acertos;
+        }
+
+        // Progresso (%) baseado só na caixa prioritária: quanto da caixa que precisa de
+        // atenção agora já foi respondido corretamente. Sem nenhuma pendência = 100%.
+        function calcularProgressoPrioridadeAssunto(assuntoId) {
+            const prioridade = caixaPrioritaria(calcularDistribuicaoPendenteAssunto(assuntoId));
+            if (!prioridade) return 100;
+            const total = calcularDistribuicaoLeitnerAssunto(assuntoId)[prioridade - 1];
+            const acertos = contarAcertosNaCaixaAssunto(assuntoId, prioridade);
+            return total > 0 ? Math.round((acertos / total) * 100) : 100;
+        }
+
+        function calcularProgressoPrioridadeDisciplina(disc) {
+            const prioridade = caixaPrioritaria(calcularDistribuicaoPendenteDisciplina(disc));
+            if (!prioridade) return 100;
+            let total = 0, acertos = 0;
+            disc.assuntos.forEach(ass => {
+                total += calcularDistribuicaoLeitnerAssunto(ass.id)[prioridade - 1];
+                acertos += contarAcertosNaCaixaAssunto(ass.id, prioridade);
+            });
+            return total > 0 ? Math.round((acertos / total) * 100) : 100;
+        }
+
+        function calcularProgressoPrioridadeContexto(ctx) {
+            const prioridade = caixaPrioritaria(calcularDistribuicaoPendenteContexto(ctx));
+            if (!prioridade) return 100;
+            let total = 0, acertos = 0;
+            (ctx.disciplinas || []).forEach(disc => {
+                disc.assuntos.forEach(ass => {
+                    total += calcularDistribuicaoLeitnerAssunto(ass.id)[prioridade - 1];
+                    acertos += contarAcertosNaCaixaAssunto(ass.id, prioridade);
+                });
+            });
+            return total > 0 ? Math.round((acertos / total) * 100) : 100;
+        }
+
+        function htmlDistribuicaoLeitner(dist, distPendente) {
+            const prioritaria = distPendente ? caixaPrioritaria(distPendente) : null;
+            let html = '';
+            for (let i = 0; i < 5; i++) {
+                if (dist[i] === 0) continue;
+                const ehPrioritaria = prioritaria === (i + 1);
+                const classe = 'leitner-badge' + (ehPrioritaria ? ' leitner-badge-prioridade' : '');
+                const titulo = LEITNER_NOMES[i] + (ehPrioritaria ? ' — atenção imediata: responda esses primeiro!' : '');
+                html += `<span class="${classe}" title="${titulo}">${LEITNER_ICONES[i]} ${dist[i]}</span>`;
+            }
+            return html;
+        }
+
+        // Decide se um cartão ainda deve ser considerado "ponto fraco" (Maior Dificuldade).
+        // Critério para ENTRAR na lista: 3 ou mais erros acumulados.
+        // Critério de "graduação" (sair da lista mesmo com histórico de erro):
+        //   taxa de acerto >= 70% E a última resposta dada foi um acerto.
+        function aindaEhPontoFraco(card) {
+            if (!card) return false;
+            const erros = card.errosCount || 0;
+            if (erros < 1) return false; // limiar mínimo pra entrar no modo Maior Dificuldade
+
+            const graduado = (card.acertosSeguidos || 0) >= 3;
+
+            return !graduado;
+        }
+
+        // Helper: busca disciplina dentro de qualquer contexto do CATALOGO
+        function buscarDisciplina(disciplinaId) {
+            for (const ctx of CATALOGO) {
+                const d = (ctx.disciplinas || []).find(d => d.id === disciplinaId);
+                if (d) return d;
+            }
+            return null;
+        }
+
+        function calcularProgressoDisciplina(disc) {
+            if (typeof disc === 'string') disc = buscarDisciplina(disc);
+            if (!disc) return 0;
+
+            let total = 0, acertos = 0;
+
+            disc.assuntos.forEach(assuntoCat => {
+                const totalDoAssunto = totalCartoesPorAssunto[assuntoCat.id] || 0;
+                total += totalDoAssunto;
+            });
+
+            // Conta acertos a partir do progresso salvo (fonte de verdade persistente)
+            for (const cartaoId in progressoSalvo) {
+                const entrada = progressoSalvo[cartaoId];
+                if (!entrada || entrada.estado !== 2) continue;
+                if (disc.assuntos.some(a => a.id === entrada.assuntoId)) {
+                    acertos++;
+                }
+            }
+
+            // Fallback: se os metadados ainda não carregaram, usa os flashcards em memória
+            if (total === 0) {
+                const assuntoIds = new Set(disc.assuntos.map(a => a.id));
+                total = 0; acertos = 0;
+                for (const key in flashcards) {
+                    if (assuntoIds.has(flashcards[key].assuntoId)) {
+                        total++;
+                        if (flashcards[key].estado === 2) acertos++;
+                    }
+                }
+            }
+
+            return total > 0 ? Math.round((acertos / total) * 100) : 0;
+        }
+
+        function calcularProgressoAssunto(assuntoId) {
+            let total = totalCartoesPorAssunto[assuntoId] || 0;
+            let acertos = 0;
+
+            for (const cartaoId in progressoSalvo) {
+                const entrada = progressoSalvo[cartaoId];
+                if (entrada && entrada.assuntoId === assuntoId && entrada.estado === 2) acertos++;
+            }
+
+            // Fallback: metadados ainda não carregados — usa flashcards em memória
+            if (total === 0) {
+                total = 0; acertos = 0;
+                for (const key in flashcards) {
+                    if (flashcards[key].assuntoId === assuntoId) {
+                        total++;
+                        if (flashcards[key].estado === 2) acertos++;
+                    }
+                }
+            }
+
+            return total > 0 ? Math.round((acertos / total) * 100) : 0;
+        }
+
+        function renderizarCardsDisciplina() {
+            const container = document.getElementById('lista-disciplinas');
+            container.innerHTML = '';
+            const cores = ['#2b6cb0','#276749','#744210','#553c9a','#97266d','#c05621'];
+            CATALOGO.forEach((disciplina, i) => {
+                const pct = calcularProgressoDisciplina(disciplina.id);
+                const cor = cores[i % cores.length];
+                const card = document.createElement('div');
+                card.className = 'card-disciplina';
+                card.style.borderLeftColor = cor;
+                card.innerHTML = `
+                    <div class="card-disciplina-nome">${disciplina.nome}</div>
+                    <div class="card-disciplina-progresso-label">
+                        <span>Progresso geral</span><span>${pct}%</span>
+                    </div>
+                    <div class="card-disciplina-barra-bg">
+                        <div class="card-disciplina-barra-fill" style="width:${pct}%; background: linear-gradient(90deg, ${cor}aa, ${cor});"></div>
+                    </div>
+                `;
+                card.addEventListener('click', () => mostrarTelaAssuntos(disciplina.id));
+                container.appendChild(card);
+            });
+        }
+
+        // ---- Dark mode ----
+        function aplicarTema(tema) {
+            document.body.classList.toggle('dark-mode', tema === 'dark');
+            document.getElementById('btnDarkMode').textContent = tema === 'dark' ? '☀️' : '🌙';
+            localStorage.setItem('estudo_ativo_tema', tema);
+        }
+
+        function alternarTema() {
+            const atual = document.body.classList.contains('dark-mode') ? 'dark' : 'light';
+            aplicarTema(atual === 'dark' ? 'light' : 'dark');
+        }
+
+        function inicializarTema() {
+            const salvo = localStorage.getItem('estudo_ativo_tema');
+            if (salvo) {
+                aplicarTema(salvo);
+            } else {
+                // Sem preferência salva: usa o tema do sistema, se disponível
+                const prefereDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
+                aplicarTema(prefereDark ? 'dark' : 'light');
+            }
+            document.getElementById('btnDarkMode').addEventListener('click', alternarTema);
+        }
+
+        function inicializarSistema() {
+            inicializarTema();
+            carregarUltimoAcessoDisciplinas();
+
+            // Popula os dropdowns com o catálogo (compatibilidade interna)
+            const selectDisciplina = document.getElementById('seletorDisciplina');
+            CATALOGO.forEach(ctx => {
+                (ctx.disciplinas || []).forEach(disc => {
+                    const opt = document.createElement('option');
+                    opt.value = disc.id;
+                    opt.textContent = disc.nome;
+                    selectDisciplina.appendChild(opt);
+                });
+            });
+
+            document.getElementById('seletorDisciplina').addEventListener('change', (e) => {
+                atualizarMenuAssuntos(e.target.value);
+            });
+            document.getElementById('seletorAssunto').addEventListener('change', (e) => {
+                if (contextoAtualId && disciplinaAtualId) {
+                    entrarNoEstudo(contextoAtualId, disciplinaAtualId, e.target.value);
+                }
+            });
+            document.getElementById('btnVoltarProgresso').addEventListener('click', () => mostrarTelaContextos());
+            document.getElementById('btnVoltarContextos').addEventListener('click', () => mostrarTelaContextos());
+            document.getElementById('btnVoltarDisciplinas').addEventListener('click', () => mostrarTelaDisciplinas(contextoAtualId));
+            document.getElementById('btnVoltarDisciplinasEstudo').addEventListener('click', () => {
+                if (contextoAtualId) {
+                    mostrarTelaDisciplinas(contextoAtualId);
+                } else {
+                    mostrarTelaContextos();
+                }
+            });
+            document.getElementById('btnVoltarInicio').addEventListener('click', () => {
+                // Volta à tela de disciplinas (e recalcula o progresso) se houver contexto ativo,
+                // senão vai para a tela de contextos
+                if (contextoAtualId) {
+                    mostrarTelaDisciplinas(contextoAtualId);
+                } else {
+                    mostrarTelaContextos();
+                }
+            });
+
+            carregarProgressoLocal();
+            inicializarProgressoPersistido(() => {
+                mostrarTelaContextos();
+            });
+        }
+
+        function verificarAssuntoConcluido(idAssunto) {
+            const totalConhecido = totalCartoesPorAssunto[idAssunto];
+
+            if (totalConhecido) {
+                let acertos = 0;
+                for (const cartaoId in progressoSalvo) {
+                    const entrada = progressoSalvo[cartaoId];
+                    if (entrada && entrada.assuntoId === idAssunto && entrada.estado === 2) acertos++;
+                }
+                return acertos === totalConhecido;
+            }
+
+            // Fallback: metadados ainda não carregados — usa só flashcards em memória
+            let total = 0, acertos = 0;
+            for (const key in flashcards) {
+                if (flashcards[key].assuntoId === idAssunto) {
+                    total++;
+                    if (flashcards[key].estado === 2) acertos++;
+                }
+            }
+            return total > 0 && acertos === total;
+        }
+
+        function atualizarMenuAssuntos(disciplinaId, manterSelecao = false) {
+            const selectAssunto = document.getElementById('seletorAssunto');
+            const selecaoAnterior = selectAssunto.value;
+            selectAssunto.innerHTML = '';
+
+            // Busca a disciplina dentro dos contextos do CATALOGO
+            let disciplina = null;
+            for (const ctx of CATALOGO) {
+                const d = (ctx.disciplinas || []).find(d => d.id === disciplinaId);
+                if (d) { disciplina = d; break; }
+            }
+
+            if (!disciplina) return;
+
+            disciplina.assuntos.forEach(assunto => {
+                const opt = document.createElement('option');
+                opt.value = assunto.id;
+                const concluido = verificarAssuntoConcluido(assunto.id);
+                opt.textContent = (concluido ? '✅ ' : '⬜ ') + assunto.titulo;
+                selectAssunto.appendChild(opt);
+            });
+
+            document.getElementById('btnAtivarAssuntos').style.display = 'none';
+
+            if (manterSelecao && selecaoAnterior) {
+                selectAssunto.value = selecaoAnterior;
+            } else {
+                selectAssunto.value = disciplina.assuntos[0].id;
+            }
+            // Não chama carregarMapaAssunto aqui — quem chama é entrarNoEstudo após o arquivo ser carregado
+        }
+
+        function carregarMapaAssunto(idAssuntoSelecionado) {
+            assuntoAtualId = idAssuntoSelecionado;
+            if (!assuntoCarregado || assuntoCarregado.id !== idAssuntoSelecionado) {
+                mostrarToast('⏳ Aguarde o carregamento do assunto...', '#dd6b20');
+                return;
+            }
+            modoAtual = 'padrao';
+            confeteDisparado = false;
+            noEmAvaliacao = null;
+            ultimaCaixaMostrada = null;
+            caixaSessaoRestrita = null;
+            atualizarIconeCaixaAtual(null);
+            isCompletado = false;
+            alternarPaineis('padrao');
+            
+            let disciplinaAtual = null;
+            for (const ctx of CATALOGO) {
+                for (const d of (ctx.disciplinas || [])) {
+                    if (d.assuntos.find(a => a.id === idAssuntoSelecionado)) {
+                        disciplinaAtual = d; break;
+                    }
+                }
+                if (disciplinaAtual) break;
+            }
+
+            const assuntoAtual = assuntoCarregado;
+            
+            let mind_data = {
+                "meta": { "name": assuntoAtual.titulo },
+                "format": "node_tree",
+                "data": { 
+                    "id": "root", 
+                    "topic": `📚 ${disciplinaAtual ? disciplinaAtual.nome : ''}: ${assuntoAtual.titulo}`, 
+                    "isroot": true, 
+                    "children": [] 
+                }
+            };
+
+            assuntoAtual.topicos.forEach((topico) => {
+                let topicoNode = {
+                    "id": topico.id, "topic": topico.titulo, "expanded": false, "direction": "right",
+                    "background-color": topico.cor, "foreground-color": "#fff", "children": []
+                };
+                topico.cartoes.forEach(cartao => {
+                    topicoNode.children.push({
+                        "id": cartao.id, "topic": cartao.dica, "background-color": "#dd6b20", "foreground-color": "#fff"
+                    });
+                });
+                mind_data.data.children.push(topicoNode);
+            });
+
+            original_mind_data_atual = JSON.stringify(mind_data);
+            sincronizarMapaComEstadoLocal();
+        }
+
+        function mostrarToast(mensagem, corFundo) {
+            const toast = document.getElementById('toast');
+            toast.textContent = mensagem;
+            toast.style.background = corFundo || '#333';
+            toast.style.top = '20px';
+            setTimeout(() => { toast.style.top = '-60px'; }, 2500);
+        }
+
+        function atualizarRotuloSpacebar() {
+            const btn = document.getElementById('btnRevelar');
+            if (!btn) return;
+            btn.textContent = noEmAvaliacao ? 'Responder' : 'Iniciar';
+        }
+
+        function alternarPaineis(modo) {
+            if (modo === 'avaliacao') {
+                alternarMenu('ocultar'); 
+                document.getElementById('painel-revelar').style.display = 'none';
+                document.getElementById('painel-avaliacao').style.display = 'flex';
+                const btnAcertei = document.getElementById('btnAcertei');
+                if (btnAcertei) setTimeout(() => btnAcertei.focus(), 100);
+            } else if (modo === 'revelar') {
+                alternarMenu('ocultar'); 
+                document.getElementById('painel-avaliacao').style.display = 'none';
+                document.getElementById('painel-revelar').style.display = 'block';
+                const btnRevelar = document.getElementById('btnRevelar');
+                if (btnRevelar) setTimeout(() => btnRevelar.focus(), 100);
+            } else {
+                document.getElementById('painel-avaliacao').style.display = 'none';
+                document.getElementById('painel-revelar').style.display = 'block';
+            }
+            atualizarRotuloSpacebar();
+            setTimeout(() => { window.dispatchEvent(new Event('resize')); }, 400);
+        }
+
+        function alternarMenu(acao) {
+            const menu = document.getElementById('area-menu');
+            // Como o botão "Menu" foi removido, os dropdowns internos ficam sempre ocultos
+            // (continuam existindo no DOM só para compatibilidade com o resto do código)
+            if (acao === 'mostrar') {
+                menu.classList.remove('oculto');
+            } else {
+                menu.classList.add('oculto');
+            }
+            setTimeout(() => { window.dispatchEvent(new Event('resize')); }, 400);
+        }
+
+        function obterProximaRevisao() {
+            // return Date.now() + (1 * 60 * 1000);//revisão em 1 minuto
+            const data = new Date();
+            data.setDate(data.getDate() + 1); 
+            data.setHours(4, 0, 0, 0); 
+            return data.getTime(); 
+        }
+
+        // Revisão espaçada em 3 passos para cartões em "Maior Dificuldade": 1 dia, 3 dias, 90 dias.
+        // O passo avança a cada novo erro nesse status; fica travado no passo 3 (90 dias) depois disso.
+        const LEITNER_PASSOS_DIAS = { 1: 1, 2: 3, 3: 90 };
+
+        function obterProximaRevisaoEspacada(passo) {
+            const dias = LEITNER_PASSOS_DIAS[passo] || 1;
+            const data = new Date();
+            data.setDate(data.getDate() + dias);
+            data.setHours(4, 0, 0, 0);
+            return data.getTime();
+        }
+
+        // Mostra só uma caixa Leitner de cada vez no modo de estudo padrão,
+        // priorizando a Caixa 1, depois a Caixa 2, e assim por diante.
+        // Retorna true se conseguiu revelar alguma caixa com cartões pendentes.
+        let ultimaCaixaMostrada = null;
+
+        function atualizarIconeCaixaAtual(caixa) {
+            const el = document.getElementById('leitnerCaixaAtual');
+            if (!el) return;
+            if (caixa && caixa >= 1 && caixa <= 5) {
+                el.textContent = LEITNER_ICONES[caixa - 1];
+                el.title = `Estudando a Caixa ${caixa}`;
+                el.style.display = 'inline';
+            } else {
+                el.style.display = 'none';
+            }
+        }
+
+        function aplicarPrioridadeLeitner() {
+            if (modoAtual !== 'padrao') return false;
+
+            let menorCaixa = null;
+
+            if (caixaSessaoRestrita) {
+                // Sessão restrita a uma única caixa (via botão Resetar): só considera
+                // essa caixa específica — não avança pra outra mesmo que ela esvazie.
+                const temPendenteNaCaixa = Object.keys(flashcards).some(id => {
+                    const card = flashcards[id];
+                    return card.assuntoId === assuntoAtualId && card.estado === 0
+                        && (card.caixaLeitner || 1) === caixaSessaoRestrita;
+                });
+                menorCaixa = temPendenteNaCaixa ? caixaSessaoRestrita : null;
+            } else {
+                // Descobre a menor caixa com cartões ainda pendentes (estado 0) neste assunto
+                for (const id in flashcards) {
+                    const card = flashcards[id];
+                    if (card.assuntoId !== assuntoAtualId || card.estado !== 0) continue;
+                    const caixa = card.caixaLeitner || 1;
+                    if (menorCaixa === null || caixa < menorCaixa) menorCaixa = caixa;
+                }
+            }
+
+            if (menorCaixa === null) {
+                atualizarIconeCaixaAtual(null);
+                return false;
+            }
+
+            // Reconstrói o mapa do zero (igual ao Revisar Erradas) e mantém só os
+            // cartões pendentes da caixa prioritária; os demais são removidos da
+            // visualização até chegar a vez deles.
+            jm.show(JSON.parse(original_mind_data_atual));
+            jm.collapse_all();
+            jm.expand_node('root');
+
+            let algumVisivel = false;
+            for (const nodeId in flashcards) {
+                const card = flashcards[nodeId];
+                if (card.assuntoId !== assuntoAtualId) continue;
+                const nodeObj = jm.get_node(nodeId);
+                if (!nodeObj) continue;
+
+                if (card.estado === 2 || card.estado === 3 || card.isErro) {
+                    jm.remove_node(nodeId);
+                    continue;
+                }
+
+                const caixa = card.caixaLeitner || 1;
+                if (caixa === menorCaixa) {
+                    jm.update_node(nodeId, card.dica);
+                    algumVisivel = true;
+                } else {
+                    jm.remove_node(nodeId);
+                }
+            }
+
+            limparPastasVazias();
+
+            if (algumVisivel && menorCaixa !== ultimaCaixaMostrada) {
+                ultimaCaixaMostrada = menorCaixa;
+                atualizarIconeCaixaAtual(menorCaixa);
+                mostrarToast(`${LEITNER_ICONES[menorCaixa - 1]} Estudando a Caixa ${menorCaixa}`, '#4a5568');
+            } else if (!algumVisivel) {
+                atualizarIconeCaixaAtual(null);
+            }
+
+            return algumVisivel;
+        }
+
+        function obterProximoCartao() {
+            for (const id in flashcards) {
+                if (flashcards[id].assuntoId === assuntoAtualId && flashcards[id].estado === 0) {
+                    const nodeObj = jm.get_node(id);
+                    if (nodeObj) return id;
+                }
+            }
+
+            // Nenhum cartão pendente no mapa atual: tenta revelar a próxima caixa Leitner
+            if (aplicarPrioridadeLeitner()) {
+                for (const id in flashcards) {
+                    if (flashcards[id].assuntoId === assuntoAtualId && flashcards[id].estado === 0) {
+                        const nodeObj = jm.get_node(id);
+                        if (nodeObj) return id;
+                    }
+                }
+            }
+            return null;
+        }
+
+        function atualizarProgresso() {
+            let total = 0;
+            let acertos = 0;
+            
+            for (const key in flashcards) {
+                if (flashcards[key].assuntoId !== assuntoAtualId) continue;
+
+                if (modoAtual === 'espacada' || modoAtual === 'erradas' || modoAtual === 'frequentes') {
+                    if (flashcards[key].emSessao) {
+                        total++;
+                        if (flashcards[key].estado === 2) acertos++;
+                    }
+                } else if (modoAtual === 'padrao' && caixaSessaoRestrita) {
+                    if (flashcards[key].emSessao) {
+                        total++;
+                        if (flashcards[key].estado === 2) acertos++;
+                    }
+                } else {
+                    total++;
+                    if (flashcards[key].estado === 2) acertos++;
+                }
+            }
+
+            if (total === 0) {
+                document.getElementById('progressBar').style.width = '0%';
+                document.getElementById('progressText').textContent = `(0%)`;
+                return;
+            }
+
+            const porcentagem = Math.round((acertos / total) * 100);
+            document.getElementById('progressBar').style.width = porcentagem + '%';
+            document.getElementById('progressText').textContent = `(${porcentagem}%)`;
+
+            if (porcentagem === 100 && !confeteDisparado) {
+                confeteDisparado = true;
+                const audioEl = document.getElementById('somPalmas');
+                audioEl.volume = 1.0;
+                audioEl.currentTime = 0; 
+                const playPromise = audioEl.play();
+                if (playPromise !== undefined) {
+                    playPromise.catch(erro => console.log("Áudio bloqueado:", erro));
+                }
+
+                confetti({ particleCount: 150, spread: 80, origin: { y: 0.6 }, zIndex: 9999 });
+
+                const rootNode = jm.get_node('root');
+                if (rootNode && !rootNode.topic.startsWith('✅')) {
+                    jm.update_node('root', '✅ ' + rootNode.topic);
+                    jm.set_node_color('root', '#38a169', '#fff'); 
+                }
+                
+                if (modoAtual === 'espacada') {
+                    document.getElementById('btnEspacada').style.display = 'none';
+                    setTimeout(() => { mostrarToast("🏆 Revisão Completa! Bom trabalho!", "#3182ce"); }, 500);
+                } else if (modoAtual === 'erradas') {
+                    document.getElementById('btnRevisarErradas').style.display = 'none';
+                    setTimeout(() => { mostrarToast("🏆 Erros imediatos corrigidos!", "#dd6b20"); }, 500);
+                } else if (modoAtual === 'frequentes') {
+                    document.getElementById('btnRevisarFrequentes').style.display = 'none';
+                    setTimeout(() => { mostrarToast("🏆 Revisão de véspera concluída!", "#805ad5"); }, 500);
+                } else if (caixaSessaoRestrita) {
+                    setTimeout(() => { mostrarToast(`🏆 ${LEITNER_ICONES[caixaSessaoRestrita - 1]} Caixa ${caixaSessaoRestrita} concluída!`, "#d69e2e"); }, 500);
+                } else {
+                    setTimeout(() => { mostrarToast("🏆 Parabéns! Você dominou o conteúdo!", "#d69e2e"); }, 500);
+                }
+
+                setTimeout(() => { 
+                    const disciplinaId = document.getElementById('seletorDisciplina').value;
+                    atualizarMenuAssuntos(disciplinaId, true);
+                    aplicarEstadoConcluido(); 
+                }, 3500);
+            }
+        }
+
+        function aplicarEstadoConcluido() {
+            isCompletado = true;
+            caixaSessaoRestrita = null;
+            jm.collapse_all();
+            document.getElementById('painel-revelar').style.display = 'none';
+            mostrarToast("Sessão finalizada. Use o botão ↻ Resetar para recomeçar.", "#38a169");
+        }
+
+        document.getElementById('jsmind_container').addEventListener('dblclick', (e) => { e.preventDefault(); e.stopPropagation(); }, true);
+
+        function processarToqueNoNo(noValidado) {
+            const nodeId = noValidado.getAttribute('nodeid');
+            const nodeObj = jm.get_node(nodeId);
+
+            if (noEmAvaliacao && noEmAvaliacao !== nodeId) {
+                const cardAntigo = flashcards[noEmAvaliacao];
+                if(cardAntigo) {
+                    cardAntigo.estado = 0; 
+                    const nodeAntigoExiste = jm.get_node(noEmAvaliacao);
+                    if(nodeAntigoExiste) {
+                        if (modoAtual === 'frequentes' && aindaEhPontoFraco(cardAntigo)) {
+                            jm.set_node_color(noEmAvaliacao, "#805ad5", "#fff");
+                            const cleanDica = cardAntigo.dica.replace(/^.*? /, '');
+                            jm.update_node(noEmAvaliacao, `[${cardAntigo.errosCount}x] 🚨 ` + cleanDica);
+                        } else if (modoAtual === 'espacada' && cardAntigo.emSessao) {
+                            jm.set_node_color(noEmAvaliacao, "#3182ce", "#fff");
+                            const cleanDica = cardAntigo.dica.replace(/^.*? /, '');
+                            jm.update_node(noEmAvaliacao, "⏳ " + cleanDica);
+                        } else if (modoAtual === 'erradas' && cardAntigo.emSessao) {
+                            jm.set_node_color(noEmAvaliacao, "#e53e3e", "#fff");
+                            const cleanDica = cardAntigo.dica.replace(/^.*? /, '');
+                            jm.update_node(noEmAvaliacao, "🔄 " + cleanDica);
+                        } else if (cardAntigo.estado === 3 || cardAntigo.isErro) {
+                            jm.set_node_color(noEmAvaliacao, "#e53e3e", "#fff");
+                            const cleanDica = cardAntigo.dica.replace(/^.*? /, '');
+                            jm.update_node(noEmAvaliacao, "❌ " + cleanDica);
+                        } else {
+                            jm.set_node_color(noEmAvaliacao, "#dd6b20", "#fff");
+                            jm.update_node(noEmAvaliacao, cardAntigo.dica);
+                        }
+                    }
+                }
+                alternarPaineis('padrao');
+                noEmAvaliacao = null;
+            }
+            
+            if (flashcards[nodeId]) {
+                const card = flashcards[nodeId];
+                card.estado = 1; 
+                jm.update_node(nodeId, card.dica);
+                jm.set_node_color(nodeId, "#2c3e50", "#fff"); 
+                jm.select_node(nodeId); 
+                noEmAvaliacao = nodeId;
+                if (modoAtual === 'padrao') atualizarIconeCaixaAtual(card.caixaLeitner || 1);
+                alternarPaineis('revelar');
+            } else {
+                if (nodeObj && nodeObj.children && nodeObj.children.length > 0) {
+                    if (!nodeObj.expanded && nodeObj.parent) {
+                        const parentObj = nodeObj.parent;
+                        for (let i = 0; i < parentObj.children.length; i++) {
+                            const irmao = parentObj.children[i];
+                            if (irmao.id !== nodeId && irmao.expanded) {
+                                jm.collapse_node(irmao.id);
+                            }
+                        }
+                    }
+                    jm.toggle_node(nodeId);
+                }
+                jm.select_node(nodeId); 
+            }
+            setTimeout(() => {
+                if(noValidado) noValidado.scrollIntoView({ behavior: 'smooth', block: 'center', inline: 'center' });
+            }, 180);
+        }
+
+        let ultimoToque = 0;
+        let audioDesbloqueado = false;
+
+        function interagirComNo(event) {
+            if (modoAtual === 'progresso') return;
+            const noValidado = event.target.closest('jmnode');
+
+            if (isCompletado) {
+                return; 
+            }
+
+            if (!audioDesbloqueado) {
+                const audioEl = document.getElementById('somPalmas');
+                audioEl.volume = 0; 
+                const playPromise = audioEl.play();
+                if (playPromise !== undefined) {
+                    playPromise.then(() => {
+                        audioEl.pause();
+                        audioEl.currentTime = 0;
+                        audioEl.volume = 1.0; 
+                    }).catch(e => console.log("Áudio aguardando interação", e));
+                }
+                audioDesbloqueado = true;
+            }
+            
+            if (noValidado) {
+                const agora = Date.now();
+                if (agora - ultimoToque < 300) return; 
+                ultimoToque = agora;
+                processarToqueNoNo(noValidado);
+            }
+        }
+
+        document.getElementById('jsmind_container').addEventListener('touchstart', interagirComNo, { passive: true, capture: true });
+        document.getElementById('jsmind_container').addEventListener('mousedown', interagirComNo, true);
+
+        function avancarProximoCartao(avisarSeVazio = true) {
+            if (isCompletado) return;
+
+            const proximoId = obterProximoCartao();
+
+            if (proximoId) {
+                let nodeObj = jm.get_node(proximoId);
+
+                if (nodeObj && nodeObj.parent) {
+                    let p = nodeObj.parent;
+                    while(p && !p.isroot) {
+                        jm.expand_node(p.id);
+                        p = p.parent;
+                    }
+                }
+
+                setTimeout(() => {
+                    const nodeElement = document.querySelector(`jmnode[nodeid="${proximoId}"]`);
+                    if (nodeElement) {
+                        processarToqueNoNo(nodeElement);
+                    } else {
+                         const card = flashcards[proximoId];
+                         card.estado = 1;
+                         jm.update_node(proximoId, card.dica);
+                         jm.set_node_color(proximoId, "#2c3e50", "#fff");
+                         jm.select_node(proximoId);
+                         noEmAvaliacao = proximoId;
+                         if (modoAtual === 'padrao') atualizarIconeCaixaAtual(card.caixaLeitner || 1);
+                         alternarPaineis('revelar');
+                    }
+                }, 150); 
+            } else if (avisarSeVazio) {
+                mostrarToast("Nenhum cartão pendente na tela!", "#dd6b20");
+            }
+        }
+
+        document.getElementById('btnRevelar').addEventListener('click', () => {
+            if (isCompletado) return;
+            sairModoProgresso();
+
+            if (!audioDesbloqueado) {
+                const audioEl = document.getElementById('somPalmas');
+                audioEl.volume = 0; 
+                const playPromise = audioEl.play();
+                if (playPromise !== undefined) {
+                    playPromise.then(() => {
+                        audioEl.pause();
+                        audioEl.currentTime = 0;
+                        audioEl.volume = 1.0; 
+                    }).catch(e => console.log("Áudio aguardando interação", e));
+                }
+                audioDesbloqueado = true;
+            }
+
+            if (noEmAvaliacao) {
+                const card = flashcards[noEmAvaliacao];
+                jm.update_node(noEmAvaliacao, card.conteudo);
+                alternarPaineis('avaliacao');
+            } else {
+                avancarProximoCartao(true);
+            }
+        });
+
+        document.getElementById('btnAcertei').addEventListener('click', () => {
+            if (noEmAvaliacao) {
+                const card = flashcards[noEmAvaliacao];
+                card.estado = 2; 
+                card.jaRespondido = true;
+                card.isErro = false; 
+                card.acertosConta = (card.acertosConta || 0) + 1;
+                card.ultimaResposta = 'acerto';
+
+                const agora = Date.now();
+                card.diaRespondido = agora; // tag: este cartão foi respondido hoje
+
+                // Enquanto o cartão estiver em "Maior Dificuldade" (1+ erro e ainda não
+                // graduado), acertos no mesmo dia lógico não contam pra graduação —
+                // só o primeiro acerto de cada dia soma no contador de acertos seguidos.
+                const emMaiorDificuldadeAntes = (card.errosCount || 0) >= 1 && (card.acertosSeguidos || 0) < 3;
+                let acertoJaContadoHoje = false;
+                if (emMaiorDificuldadeAntes) {
+                    acertoJaContadoHoje = estaNoMesmoDiaLeitner(card.ultimoDiaAcertoContado, agora);
+                    if (!acertoJaContadoHoje) {
+                        card.acertosSeguidos = (card.acertosSeguidos || 0) + 1;
+                        card.ultimoDiaAcertoContado = agora;
+                    }
+                } else {
+                    card.acertosSeguidos = (card.acertosSeguidos || 0) + 1;
+                }
+
+                card.passoEspacado = 0;
+
+                // A caixa NUNCA muda no mesmo dia da resposta. Só a PRIMEIRA resposta de
+                // cada dia lógico define a mudança pendente — respostas seguintes no
+                // mesmo dia não recalculam nem sobrescrevem essa pendência.
+                if (!estaNoMesmoDiaLeitner(card.ultimaMudancaCaixa, agora)) {
+                    card.caixaPendente = Math.min((card.caixaLeitner || 1) + 1, 5);
+                    card.ultimaMudancaCaixa = agora;
+                }
+                
+                if (modoAtual === 'espacada' || modoAtual === 'frequentes') {
+                    card.proximaRevisao = 0; 
+                }
+                
+                const nodeObj = jm.get_node(noEmAvaliacao);
+                const parentObj = nodeObj ? nodeObj.parent : null;
+
+                try {
+                    jm.remove_node(noEmAvaliacao);
+                    if (parentObj && parentObj.id !== 'root') {
+                        if (!parentObj.children || parentObj.children.length === 0) {
+                            jm.remove_node(parentObj.id);
+                        }
+                    }
+                } catch(e) { }
+                
+                let msgAcerto;
+                if (emMaiorDificuldadeAntes && acertoJaContadoHoje) {
+                    msgAcerto = "Acertou! ✅ (não conta pra sair de Maior Dificuldade hoje ⏱️)";
+                } else {
+                    msgAcerto = "Memorizado! ✅ (caixa muda amanhã ⏱️)";
+                }
+                mostrarToast(msgAcerto, "#38a169");
+                noEmAvaliacao = null;
+                alternarPaineis('padrao');
+                
+                atualizarProgresso();
+                verificarBotoesRevisao(); 
+                salvarProgressoLocal(); 
+
+                setTimeout(() => avancarProximoCartao(false), 350);
+            }
+        });
+
+        document.getElementById('btnErrei').addEventListener('click', () => {
+            if (noEmAvaliacao) {
+                const card = flashcards[noEmAvaliacao];
+                card.estado = 3; 
+                card.isErro = true; 
+                
+                card.errosCount = (card.errosCount || 0) + 1;
+                card.ultimaResposta = 'erro';
+                card.acertosSeguidos = 0;
+
+                const agora = Date.now();
+                card.diaRespondido = agora; // tag: este cartão foi respondido hoje
+
+                // A caixa NUNCA muda no mesmo dia da resposta. Só a PRIMEIRA resposta de
+                // cada dia lógico define a mudança pendente — respostas seguintes no
+                // mesmo dia não recalculam nem sobrescrevem essa pendência.
+                if (!estaNoMesmoDiaLeitner(card.ultimaMudancaCaixa, agora)) {
+                    card.caixaPendente = 1;
+                    card.ultimaMudancaCaixa = agora;
+                }
+
+                card.passoEspacado = 0;
+                card.proximaRevisao = 0;
+                card.jaRespondido = true;
+
+                const nodeObj = jm.get_node(noEmAvaliacao);
+                const parentObj = nodeObj ? nodeObj.parent : null;
+
+                try {
+                    jm.remove_node(noEmAvaliacao);
+                    if (parentObj && parentObj.id !== 'root') {
+                        if (!parentObj.children || parentObj.children.length === 0) {
+                            jm.remove_node(parentObj.id);
+                        }
+                    }
+                } catch(e) { }
+
+                mostrarToast(`Errou ❌ (permanece na Caixa ${card.caixaLeitner}, muda amanhã ⏱️)`, "#e53e3e");
+                noEmAvaliacao = null;
+                alternarPaineis('padrao');
+                
+                atualizarProgresso(); 
+                verificarBotoesRevisao(); 
+                salvarProgressoLocal(); 
+
+                setTimeout(() => avancarProximoCartao(false), 350);
+            }
+        });
+
+        function limparPastasVazias() {
+            if (!assuntoCarregado) return;
+            assuntoCarregado.topicos.forEach(t => {
+                const p = jm.get_node(t.id);
+                if (p && (!p.children || p.children.length === 0)) {
+                    try { jm.remove_node(t.id); } catch(e){}
+                }
+            });
+        }
+
+        document.getElementById('btnAtivarAssuntos').addEventListener('click', () => {
+            const disciplinaId = document.getElementById('seletorDisciplina').value;
+            const disciplina = buscarDisciplina(disciplinaId);
+            
+            if (disciplina) {
+                disciplina.assuntos.forEach(assunto => {
+                    if (verificarAssuntoConcluido(assunto.id)) {
+                        for (const key in flashcards) {
+                            if (flashcards[key].assuntoId === assunto.id) {
+                                flashcards[key].estado = 0;
+                                flashcards[key].emSessao = false;
+                                flashcards[key].isErro = false;
+                                flashcards[key].jaRespondido = false;
+                                flashcards[key].proximaRevisao = 0;
+                            }
+                        }
+                    }
+                });
+            }
+            salvarProgressoLocal();
+            atualizarMenuAssuntos(disciplinaId, true);
+            carregarMapaAssunto(assuntoAtualId); 
+            mostrarToast("Todos os assuntos foram reativados!", "#38b2ac");
+        });
+
+        document.getElementById('btnRevisarFrequentes').addEventListener('click', () => {
+            let temErros = false;
+            sairModoProgresso(); modoAtual = 'frequentes'; 
+            isCompletado = false; 
+            
+            jm.show(JSON.parse(original_mind_data_atual));
+            jm.collapse_all();
+            jm.expand_node('root');
+
+            for (const nodeId in flashcards) {
+                if (flashcards[nodeId].assuntoId !== assuntoAtualId) continue;
+
+                const card = flashcards[nodeId];
+                const cleanDica = card.dica.replace(/^.*? /, '');
+                const nodeObj = jm.get_node(nodeId); 
+                card.emSessao = false;
+
+                if (aindaEhPontoFraco(card)) {
+                    card.estado = 0; 
+                    card.emSessao = true;
+                    if(nodeObj) {
+                        jm.update_node(nodeId, `[${card.errosCount}x] 🚨 ` + cleanDica);
+                        jm.set_node_color(nodeId, "#805ad5", "#fff"); 
+                    }
+                    temErros = true;
+                } else {
+                    if(nodeObj) jm.remove_node(nodeId);
+                }
+            }
+
+            limparPastasVazias();
+            if(temErros) { confeteDisparado = false; mostrarToast("Revisão de Véspera: Pontos críticos!", "#805ad5"); }
+            atualizarProgresso();
+
+            noEmAvaliacao = null;
+            alternarPaineis('padrao');
+        });
+
+        document.getElementById('btnRevisarErradas').addEventListener('click', () => {
+            let temErros = false;
+            sairModoProgresso(); modoAtual = 'erradas'; 
+            isCompletado = false; 
+            
+            jm.show(JSON.parse(original_mind_data_atual));
+            jm.collapse_all();
+            jm.expand_node('root');
+
+            for (const nodeId in flashcards) {
+                if (flashcards[nodeId].assuntoId !== assuntoAtualId) continue;
+
+                const card = flashcards[nodeId];
+                const cleanDica = card.dica.replace(/^.*? /, '');
+                const nodeObj = jm.get_node(nodeId); 
+                card.emSessao = false;
+
+                if (card.isErro) {
+                    card.estado = 0; 
+                    card.emSessao = true;
+                    if(nodeObj) {
+                        jm.update_node(nodeId, "🔄 " + cleanDica);
+                        jm.set_node_color(nodeId, "#e53e3e", "#fff"); 
+                    }
+                    temErros = true;
+                } else {
+                    if(nodeObj) jm.remove_node(nodeId);
+                }
+            }
+
+            limparPastasVazias();
+            if(temErros) { confeteDisparado = false; mostrarToast("Modo Revisão: Focando nos erros!", "#dd6b20"); } 
+            atualizarProgresso();
+
+            noEmAvaliacao = null;
+            alternarPaineis('padrao');
+        });
+
+        document.getElementById('btnEspacada').addEventListener('click', () => {
+            let temRevisao = false;
+            const agora = Date.now();
+            sairModoProgresso(); modoAtual = 'espacada'; 
+            isCompletado = false; 
+
+            jm.show(JSON.parse(original_mind_data_atual));
+            jm.collapse_all();
+            jm.expand_node('root');
+
+            for (const nodeId in flashcards) {
+                if (flashcards[nodeId].assuntoId !== assuntoAtualId) continue;
+
+                const card = flashcards[nodeId];
+                const cleanDica = card.dica.replace(/^.*? /, '');
+                const nodeObj = jm.get_node(nodeId);
+
+                if (card.proximaRevisao > 0 && agora >= card.proximaRevisao) {
+                    card.estado = 0;
+                    card.emSessao = true; 
+                    if(nodeObj) {
+                        jm.update_node(nodeId, "⏳ " + cleanDica);
+                        jm.set_node_color(nodeId, "#3182ce", "#fff"); 
+                    }
+                    temRevisao = true;
+                    if (nodeObj && nodeObj.parent) jm.expand_node(nodeObj.parent.id);
+                } else {
+                    card.emSessao = false; 
+                    if(nodeObj) jm.remove_node(nodeId);
+                }
+            }
+
+            limparPastasVazias();
+            if(temRevisao) { confeteDisparado = false; mostrarToast("Revisão Espaçada: Pratique os cartões agendados!", "#3182ce"); }
+            atualizarProgresso();
+
+            noEmAvaliacao = null;
+            alternarPaineis('padrao');
+        });
+
+        document.getElementById('btnReset').addEventListener('click', () => {
+            sairModoProgresso();
+            modoAtual = 'padrao'; 
+            isCompletado = false; 
+
+            const distPendente = calcularDistribuicaoPendenteAssunto(assuntoAtualId);
+            const prioridade = caixaPrioritaria(distPendente);
+
+            if (prioridade) {
+                // Restringe a sessão só à caixa prioritária: só os cartões dessa caixa
+                // voltam a ficar pendentes; os demais mantêm o estado atual intocado.
+                caixaSessaoRestrita = prioridade;
+                for (const nodeId in flashcards) {
+                    const card = flashcards[nodeId];
+                    if (card.assuntoId !== assuntoAtualId) continue;
+                    const caixaDoCartao = card.caixaLeitner || 1;
+                    if (caixaDoCartao === prioridade) {
+                        card.estado = 0;
+                        card.isErro = false;
+                        card.emSessao = true;
+                    } else {
+                        card.emSessao = false;
+                    }
+                }
+                mostrarToast(`${LEITNER_ICONES[prioridade - 1]} Reiniciando a Caixa ${prioridade}`, "#4a5568");
+            } else {
+                // Nada pendente em nenhuma caixa — reinicia o assunto inteiro do zero
+                caixaSessaoRestrita = null;
+                for (const nodeId in flashcards) {
+                    if (flashcards[nodeId].assuntoId !== assuntoAtualId) continue;
+                    const card = flashcards[nodeId];
+                    card.estado = 0;
+                    card.emSessao = false;
+                    card.isErro = false;
+                    // Preserva: errosCount, acertosConta, jaRespondido, proximaRevisao
+                }
+                mostrarToast("Matéria Reiniciada!", "#4a5568");
+            }
+            
+            noEmAvaliacao = null;
+            alternarPaineis('padrao');
+
+            confeteDisparado = false; 
+            ultimaCaixaMostrada = null;
+
+            // Salva o progresso resetado ANTES de sincronizar o mapa — sincronizarMapaComEstadoLocal
+            // usa verificarAssuntoConcluido(), que lê do progressoSalvo, não do flashcards em memória.
+            salvarProgressoLocal(true); 
+            sincronizarMapaComEstadoLocal();
+            
+            setTimeout(() => {
+                const rootElement = document.querySelector('jmnode[nodeid="root"]');
+                if (rootElement) rootElement.scrollIntoView({ behavior: 'smooth', block: 'center', inline: 'center' });
+            }, 150);
+            
+            const disciplinaId = document.getElementById('seletorDisciplina').value;
+            atualizarMenuAssuntos(disciplinaId, true);
+        });
+
+        // ---- Mapeamento de cores (modo Progresso) ----
+
+        function calcularEstatisticasTopico(topico) {
+            let total = 0, acertos = 0, respondidos = 0, errosTotais = 0, acertosTotais = 0;
+            topico.cartoes.forEach(cartao => {
+                const card = flashcards[cartao.id];
+                if (!card) return;
+                total++;
+                if (card.estado === 2) acertos++;
+                if (card.jaRespondido) respondidos++;
+                errosTotais   += (card.errosCount   || 0);
+                acertosTotais += (card.acertosConta || 0);
+            });
+            const totalRespostas = errosTotais + acertosTotais;
+            const percentual = totalRespostas > 0
+                ? Math.round((acertosTotais / totalRespostas) * 100) : 0;
+            return { total, acertos, respondidos, errosTotais, acertosTotais, percentual };
+        }
+
+        function corSaudeTopico(percentual, errosTotais, total, respondidos) {
+            if (total === 0) return "hsla(210, 10%, 70%, 0.12)";
+            const hue = Math.round((percentual / 100) * 120);
+            const mediaErros = errosTotais / total;
+            const luminosidade = Math.max(32, 50 - Math.min(mediaErros, 5) * 3);
+            const alpha = 0.12 + (respondidos / total) * 0.88;
+            return `hsla(${hue}, 68%, ${luminosidade}%, ${alpha.toFixed(2)})`;
+        }
+
+        function corSaudeCartao(card) {
+            if (!card || !card.jaRespondido) return "#fbd38d";
+            const erros   = card.errosCount   || 0;
+            const acertos = card.acertosConta || 0;
+            const totalR  = erros + acertos;
+            if (totalR === 0) return "#fbd38d";
+            const taxa = acertos / totalR;
+            if (taxa >= 1)   return "#68d391";
+            if (taxa >= 0.7) return "#fc8181";
+            if (taxa >= 0.4) return "#f56565";
+            if (taxa >= 0.2) return "#e53e3e";
+            return "#c53030";
+        }
+
+        function aplicarMapeamentoCores() {
+            if (!assuntoCarregado) return;
+
+            assuntoCarregado.topicos.forEach(topico => {
+                const topicoNode = jm.get_node(topico.id);
+                if (!topicoNode) return;
+
+                const stats = calcularEstatisticasTopico(topico);
+                const cor = corSaudeTopico(stats.percentual, stats.errosTotais, stats.total, stats.respondidos);
+                const corTexto = (stats.respondidos / stats.total) < 0.5 ? "#2d3748" : "#fff";
+                jm.set_node_color(topico.id, cor, corTexto);
+
+                topico.cartoes.forEach(cartao => {
+                    const nodeObj = jm.get_node(cartao.id);
+                    if (!nodeObj) return;
+                    const card = flashcards[cartao.id];
+                    const acertos = card.acertosConta || 0;
+                    const erros   = card.errosCount   || 0;
+                    const cleanDica = cartao.dica.replace(/^.*? /, '');
+                    let label = cleanDica;
+                    if (acertos > 0 || erros > 0) {
+                        label = `✅${acertos} ❌${erros}  ${cleanDica}`;
+                    }
+                    jm.update_node(cartao.id, label);
+                    jm.set_node_color(cartao.id, corSaudeCartao(card), "#2d3748");
+                });
+            });
+        }
+
+        function sairModoProgresso() {
+            if (modoAtual !== 'progresso') return;
+            modoAtual = 'padrao';
+            document.getElementById('painel-revelar').style.display = 'block';
+        }
+
+        // ---- Botão: Ver Progresso (mapa colorido) ----
+        document.getElementById('btnProgressoMapa').addEventListener('click', () => {
+            modoAtual = 'progresso';
+            noEmAvaliacao = null;
+            jm.show(JSON.parse(original_mind_data_atual));
+            jm.expand_all();
+            aplicarMapeamentoCores();
+            document.getElementById('painel-revelar').style.display = 'none';
+            document.getElementById('painel-avaliacao').style.display = 'none';
+            mostrarToast("📊 Mapa de Progresso", "#2b6cb0");
+        });
+
+        function verificarBotoesRevisao() {
+            const agora = Date.now();
+            let mostrarBotaoEspacada = false;
+            let mostrarBotaoErradas = false;
+            let mostrarBotaoFrequentes = false;
+            
+            for (let id in flashcards) {
+                if (flashcards[id].assuntoId !== assuntoAtualId) continue;
+
+                if (flashcards[id].proximaRevisao > 0 && agora >= flashcards[id].proximaRevisao) mostrarBotaoEspacada = true;
+                if (flashcards[id].isErro) mostrarBotaoErradas = true;
+                if (aindaEhPontoFraco(flashcards[id])) mostrarBotaoFrequentes = true;
+            }
+            
+            if (modoAtual === 'espacada' && confeteDisparado) mostrarBotaoEspacada = false;
+            if (modoAtual === 'erradas' && confeteDisparado) mostrarBotaoErradas = false;
+            if (modoAtual === 'frequentes' && confeteDisparado) mostrarBotaoFrequentes = false;
+
+            // Mostra só um botão de cada vez, por ordem de prioridade:
+            // 1º Revisão Espaçada, 2º Revisar Erradas, 3º Maior Dificuldade
+            if (mostrarBotaoEspacada) {
+                mostrarBotaoErradas = false;
+                mostrarBotaoFrequentes = false;
+            } else if (mostrarBotaoErradas) {
+                mostrarBotaoFrequentes = false;
+            }
+
+            const btnEspacada = document.getElementById('btnEspacada');
+            const btnErradas = document.getElementById('btnRevisarErradas');
+            const btnFrequentes = document.getElementById('btnRevisarFrequentes');
+
+            const jaVisivelEspacada = btnEspacada.style.display !== 'none';
+            const jaVisivelErradas = btnErradas.style.display !== 'none';
+            const jaVisivelFrequentes = btnFrequentes.style.display !== 'none';
+
+            btnEspacada.style.display = mostrarBotaoEspacada ? 'inline-block' : 'none';
+            btnErradas.style.display = mostrarBotaoErradas ? 'inline-block' : 'none';
+            btnFrequentes.style.display = mostrarBotaoFrequentes ? 'inline-block' : 'none';
+
+            if (mostrarBotaoFrequentes && !jaVisivelFrequentes) btnFrequentes.focus();
+            if (mostrarBotaoErradas && !jaVisivelErradas) btnErradas.focus();
+            if (mostrarBotaoEspacada && !jaVisivelEspacada) btnEspacada.focus();
+        }
+
+        setInterval(verificarBotoesRevisao, 1000);
+        
+        // Dados salvos ficam em memória até os cartões serem carregados
+        let progressoSalvo = {};
+
+        function reconstruirFlashcardsDoProgressoSalvo() {
+            for (const id in progressoSalvo) {
+                const saved = progressoSalvo[id];
+                if (!saved || !saved.assuntoId || saved.assuntoId === '_orphan') continue;
+
+                if (!flashcards[id]) {
+                    flashcards[id] = {
+                        assuntoId: saved.assuntoId,
+                        estado: saved.estado ?? 0,
+                        proximaRevisao: saved.proximaRevisao ?? 0,
+                        jaRespondido: saved.jaRespondido ?? false,
+                        emSessao: false,
+                        isErro: saved.isErro ?? false,
+                        errosCount: saved.errosCount ?? 0,
+                        acertosConta: saved.acertosConta ?? 0,
+                        ultimaResposta: saved.ultimaResposta ?? null,
+                        caixaLeitner: saved.caixaLeitner ?? 1,
+                        ultimaMudancaCaixa: saved.ultimaMudancaCaixa || 0,
+                        passoEspacado: saved.passoEspacado || 0,
+                        acertosSeguidos: saved.acertosSeguidos || 0,
+                        ultimoDiaAcertoContado: saved.ultimoDiaAcertoContado || 0,
+                        caixaPendente: saved.caixaPendente ?? null,
+                        diaRespondido: saved.diaRespondido || 0,
+                        dica: '', conteudo: ''
+                    };
+                }
+            }
+        }
+
+        // Metadados de cada assunto (total de cartões) e mapa cartão→assunto,
+        // carregados uma vez no início a partir dos arquivos reais de cada assunto
+        // (via <script src>, que funciona normalmente mesmo em file://, ao contrário de fetch()).
+        let totalCartoesPorAssunto = {};
+        let mapaCartaoAssunto = {};
+        let metadadosCarregados = false;
+
+        function carregarMetadadosAssuntos(callback) {
+            const fila = [];
+            CATALOGO.forEach(ctx => {
+                (ctx.disciplinas || []).forEach(disc => {
+                    (disc.assuntos || []).forEach(ass => {
+                        fila.push({ assuntoId: ass.id, arquivo: ass.arquivo });
+                    });
+                });
+            });
+
+            if (fila.length === 0) {
+                metadadosCarregados = true;
+                callback();
+                return;
+            }
+
+            let indice = 0;
+
+            function carregarProximo() {
+                if (indice >= fila.length) {
+                    metadadosCarregados = true;
+                    callback();
+                    return;
+                }
+
+                const item = fila[indice++];
+                const script = document.createElement('script');
+                script.src = item.arquivo + '?v=' + Date.now();
+                script.onload = () => {
+                    if (typeof MEU_ASSUNTO !== 'undefined' && MEU_ASSUNTO && MEU_ASSUNTO.topicos) {
+                        let total = 0;
+                        MEU_ASSUNTO.topicos.forEach(topico => {
+                            (topico.cartoes || []).forEach(cartao => {
+                                total++;
+                                mapaCartaoAssunto[cartao.id] = item.assuntoId;
+                            });
+                        });
+                        totalCartoesPorAssunto[item.assuntoId] = total;
+                    }
+                    script.remove();
+                    try { delete window.MEU_ASSUNTO; } catch (e) { window.MEU_ASSUNTO = undefined; }
+                    carregarProximo();
+                };
+                script.onerror = () => {
+                    script.remove();
+                    carregarProximo();
+                };
+                document.head.appendChild(script);
+            }
+
+            carregarProximo();
+        }
+
+        function migrarAssuntoIdNoProgresso(assuntoId) {
+            if (!assuntoCarregado) return false;
+            let alterou = false;
+
+            assuntoCarregado.topicos.forEach(topico => {
+                topico.cartoes.forEach(cartao => {
+                    if (progressoSalvo[cartao.id] && !progressoSalvo[cartao.id].assuntoId) {
+                        progressoSalvo[cartao.id].assuntoId = assuntoId;
+                        alterou = true;
+                    }
+                });
+            });
+
+            if (alterou) {
+                localStorage.setItem('estudo_ativo_global_v5', JSON.stringify(progressoSalvo));
+            }
+            return alterou;
+        }
+
+        function migrarProgressoLegado(callback) {
+            const idsSemAssunto = Object.keys(progressoSalvo).filter(id => !progressoSalvo[id].assuntoId);
+            if (idsSemAssunto.length === 0) {
+                callback();
+                return;
+            }
+
+            let alterou = false;
+            idsSemAssunto.forEach(id => {
+                progressoSalvo[id].assuntoId = mapaCartaoAssunto[id] || '_orphan';
+                alterou = true;
+            });
+
+            if (alterou) {
+                localStorage.setItem('estudo_ativo_global_v5', JSON.stringify(progressoSalvo));
+            }
+            callback();
+        }
+
+        function inicializarProgressoPersistido(callback) {
+            // Garante que os metadados (totais por assunto + mapa cartão→assunto)
+            // já estejam carregados antes de migrar/reconstruir o progresso
+            carregarMetadadosAssuntos(() => {
+                migrarProgressoLegado(() => {
+                    aplicarMudancasCaixaPendentesGlobal();
+                    reconstruirFlashcardsDoProgressoSalvo();
+                    callback();
+                });
+            });
+        }
+
+        function salvarProgressoLocal(forcarEstadoAtual = false) {
+            const dataToSave = {};
+            for (let id in flashcards) {
+                const card = flashcards[id];
+                // Só salva estado=2 (acertou) se realmente acertou nesta sessão.
+                // Para estado=0, normalmente preserva o que já estava salvo (evita que uma
+                // simples troca de assunto apague progresso). Mas quando forcarEstadoAtual=true
+                // (usado pelo botão Resetar), grava o 0 mesmo assim.
+                const estadoSalvo = card.estado === 2 ? 2
+                    : card.estado === 3 ? 3
+                    : forcarEstadoAtual ? 0
+                    : (progressoSalvo[id] ? progressoSalvo[id].estado : 0);
+
+                dataToSave[id] = {
+                    assuntoId:      card.assuntoId,
+                    estado:         estadoSalvo,
+                    proximaRevisao: card.proximaRevisao,
+                    jaRespondido:   card.jaRespondido,
+                    isErro:         card.isErro,
+                    errosCount:     card.errosCount,
+                    acertosConta:   card.acertosConta || 0,
+                    ultimaResposta: card.ultimaResposta ?? null,
+                    caixaLeitner: card.caixaLeitner || 1,
+                    ultimaMudancaCaixa: card.ultimaMudancaCaixa || 0,
+                    passoEspacado: card.passoEspacado || 0,
+                    acertosSeguidos: card.acertosSeguidos || 0,
+                    ultimoDiaAcertoContado: card.ultimoDiaAcertoContado || 0,
+                    caixaPendente: card.caixaPendente ?? null,
+                    diaRespondido: card.diaRespondido || 0
+                };
+            }
+            const merged = Object.assign({}, progressoSalvo, dataToSave);
+            progressoSalvo = merged;
+            localStorage.setItem('estudo_ativo_global_v5', JSON.stringify(merged));
+        }
+
+        function carregarProgressoLocal() {
+            const savedString = localStorage.getItem('estudo_ativo_global_v5');
+            if (savedString) {
+                try {
+                    progressoSalvo = JSON.parse(savedString);
+                } catch (err) {
+                    console.error("Erro ao carregar progresso local:", err);
+                    progressoSalvo = {};
+                }
+            }
+        }
+
+        // Aplica o progresso salvo nos flashcards recém-registrados de um assunto
+        function aplicarProgressoSalvo(assuntoId) {
+            for (let id in flashcards) {
+                if (flashcards[id].assuntoId !== assuntoId) continue;
+                if (progressoSalvo[id]) {
+                    flashcards[id].estado         = progressoSalvo[id].estado ?? 0;
+                    flashcards[id].proximaRevisao = progressoSalvo[id].proximaRevisao ?? 0;
+                    flashcards[id].jaRespondido   = progressoSalvo[id].jaRespondido ?? false;
+                    flashcards[id].isErro         = progressoSalvo[id].isErro ?? false;
+                    flashcards[id].errosCount     = progressoSalvo[id].errosCount ?? 0;
+                    flashcards[id].acertosConta   = progressoSalvo[id].acertosConta ?? 0;
+                    flashcards[id].ultimaResposta = progressoSalvo[id].ultimaResposta ?? null;
+                    flashcards[id].caixaLeitner   = progressoSalvo[id].caixaLeitner ?? 1;
+                    flashcards[id].ultimaMudancaCaixa = progressoSalvo[id].ultimaMudancaCaixa || 0;
+                    flashcards[id].passoEspacado = progressoSalvo[id].passoEspacado || 0;
+                    flashcards[id].acertosSeguidos = progressoSalvo[id].acertosSeguidos || 0;
+                    flashcards[id].ultimoDiaAcertoContado = progressoSalvo[id].ultimoDiaAcertoContado || 0;
+                    flashcards[id].caixaPendente = progressoSalvo[id].caixaPendente ?? null;
+                    flashcards[id].diaRespondido = progressoSalvo[id].diaRespondido || 0;
+                }
+            }
+        }
+
+        function sincronizarMapaComEstadoLocal() {
+            jm.show(JSON.parse(original_mind_data_atual));
+            jm.collapse_all();
+            jm.expand_node('root');
+            
+            for (const nodeId in flashcards) {
+                if (flashcards[nodeId].assuntoId !== assuntoAtualId) continue;
+
+                const card = flashcards[nodeId];
+                const nodeObj = jm.get_node(nodeId);
+                
+                if (card.estado === 2) {
+                    if (nodeObj) { try { jm.remove_node(nodeId); } catch(e){} }
+                } else if (card.estado === 3 || card.isErro) {
+                    if (nodeObj) { try { jm.remove_node(nodeId); } catch(e){} }
+                } else if (card.estado === 0 && nodeObj) {
+                    jm.update_node(nodeId, card.dica);
+                }
+            }
+            limparPastasVazias();
+            
+            if (verificarAssuntoConcluido(assuntoAtualId)) {
+                confeteDisparado = true; 
+                isCompletado = true;
+                const rootNode = jm.get_node('root');
+                if (rootNode && !rootNode.topic.startsWith('✅')) {
+                    jm.update_node('root', '✅ ' + rootNode.topic);
+                    jm.set_node_color('root', '#38a169', '#fff'); 
+                }
+                // Esconde o botão "Iniciar", já que não há mais nada pendente neste assunto
+                document.getElementById('painel-revelar').style.display = 'none';
+                document.getElementById('painel-avaliacao').style.display = 'none';
+            } else {
+                jm.select_node('root'); 
+            }
+
+            atualizarProgresso();
+            verificarBotoesRevisao();
+
+            // Aplica a prioridade por caixa Leitner (mostra só a caixa mais baixa pendente)
+            setTimeout(() => aplicarPrioridadeLeitner(), 60);
+        }
+
+        window.onload = function() {
+            inicializarSistema();
+            const btnSpacebar = document.getElementById('btnRevelar');
+            if (btnSpacebar) {
+                setTimeout(() => btnSpacebar.focus(), 100);
+            }
+
+            // OBSERVER: Garante que a extensão de texto (quebra de linha e largura)
+            // seja aplicada SOMENTE aos cartões (folhas) e não às pastas/tópicos.
+            function aplicarEstiloCartoes(nodeList) {
+                nodeList.forEach(n => {
+                    const id = n.getAttribute('nodeid');
+                    // Se o id estiver no dicionário de flashcards, é um cartão!
+                    if (flashcards && flashcards[id]) {
+                        n.classList.add('cartao-flashcard');
+                    }
+                });
+            }
+
+            const observer = new MutationObserver((mutations) => {
+                mutations.forEach((mutation) => {
+                    mutation.addedNodes.forEach((node) => {
+                        if (node.nodeType === 1) { 
+                            if (node.tagName && node.tagName.toLowerCase() === 'jmnode') {
+                                aplicarEstiloCartoes([node]);
+                            } else if (node.querySelectorAll) {
+                                aplicarEstiloCartoes(node.querySelectorAll('jmnode'));
+                            }
+                        }
+                    });
+                });
+            });
+
+            const container = document.getElementById('jsmind_container');
+            if (container) {
+                observer.observe(container, { childList: true, subtree: true });
+                // Força a aplicação inicial nos cartões que já renderizaram
+                aplicarEstiloCartoes(container.querySelectorAll('jmnode'));
+            }
+        };
+
+        document.addEventListener('keydown', function(e) {
+            if (e.code !== 'Space' && e.key !== ' ') return;
+
+            const tagAtiva = document.activeElement ? document.activeElement.tagName : '';
+            if (tagAtiva === 'SELECT' || tagAtiva === 'INPUT' || tagAtiva === 'TEXTAREA') return;
+
+            const painelRevelar = document.getElementById('painel-revelar');
+            const painelAvaliacao = document.getElementById('painel-avaliacao');
+            const btnRevelar = document.getElementById('btnRevelar');
+            const btnAcertei = document.getElementById('btnAcertei');
+
+            if (btnRevelar && painelRevelar && painelRevelar.style.display !== 'none') {
+                e.preventDefault();
+                btnRevelar.click();
+                btnRevelar.focus();
+            } else if (btnAcertei && painelAvaliacao && painelAvaliacao.style.display !== 'none') {
+                e.preventDefault();
+                btnAcertei.click();
+                btnAcertei.focus();
+            }
+        });
+
+    </script>
+
+    <!-- ============================================================
+         POMODORO — painel (botão de abrir agora fica no cabeçalho)
+         ============================================================ -->
+    <div id="pomodoroOverlay" class="pomodoro-overlay" style="display:none;" onclick="if(event.target===this) fecharPomodoro()">
+        <div class="pomodoro-panel">
+            <div class="pomodoro-panel-header">
+                <span class="pomodoro-panel-titulo">🍅 Pomodoro</span>
+                <button class="pomodoro-fechar" onclick="fecharPomodoro()">✕</button>
+            </div>
+
+            <span id="pomodoroModeLabel" class="pomodoro-mode-label">Foco</span>
+
+            <div class="pomodoro-ring-wrap">
+                <svg class="pomodoro-svg" viewBox="0 0 220 220">
+                    <circle class="pomodoro-ring-bg" cx="110" cy="110" r="98"></circle>
+                    <circle id="pomodoroRingFg" class="pomodoro-ring-fg" cx="110" cy="110" r="98"></circle>
+                </svg>
+                <div id="pomodoroTime" class="pomodoro-time">25:00</div>
+            </div>
+
+            <div id="pomodoroDots" class="pomodoro-dots"></div>
+
+            <div class="pomodoro-controls">
+                <button class="pomodoro-btn-secundario" title="Reiniciar" onclick="resetarPomodoro()">↺</button>
+                <button id="pomodoroBtnPrincipal" class="pomodoro-btn-principal" onclick="alternarPomodoro()">▶ Iniciar</button>
+                <button class="pomodoro-btn-secundario" title="Pular" onclick="pularPomodoro()">⏭</button>
+            </div>
+
+            <button class="pomodoro-config-toggle" onclick="alternarConfigPomodoro()">⚙️ Configurações</button>
+
+            <div id="pomodoroConfigPainel" class="pomodoro-config-painel" style="display:none;">
+                <div class="pomodoro-config-linha">
+                    <label>🍅 Foco (min)</label>
+                    <input type="number" id="cfgFoco" min="1" max="180" value="25">
+                </div>
+                <div class="pomodoro-config-linha">
+                    <label>☕ Pausa curta (min)</label>
+                    <input type="number" id="cfgPausaCurta" min="1" max="60" value="5">
+                </div>
+                <div class="pomodoro-config-linha">
+                    <label>🛋️ Pausa longa (min)</label>
+                    <input type="number" id="cfgPausaLonga" min="1" max="120" value="15">
+                </div>
+                <div class="pomodoro-config-linha">
+                    <label>🔁 Ciclos até pausa longa</label>
+                    <input type="number" id="cfgCiclos" min="1" max="12" value="4">
+                </div>
+                <div class="pomodoro-config-linha">
+                    <label>🔔 Som ao terminar</label>
+                    <input type="checkbox" id="cfgSom" checked style="width:20px; height:20px;">
+                </div>
+                <div class="pomodoro-config-linha">
+                    <label>⏩ Iniciar próxima automaticamente</label>
+                    <input type="checkbox" id="cfgAutoIniciar" style="width:20px; height:20px;">
+                </div>
+                <button class="pomodoro-config-toggle" style="align-self:center; color:#e53e3e;" onclick="salvarConfigPomodoro()">💾 Salvar configurações</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // ============================================================
+        // POMODORO — lógica (temporizador com anel de progresso,
+        // ciclos foco/pausa, persistência e som ao concluir)
+        // ============================================================
+
+        const POMODORO_CORES = {
+            foco: '#e53e3e',
+            pausaCurta: '#38a169',
+            pausaLonga: '#3182ce'
+        };
+        const POMODORO_LABELS = {
+            foco: '🍅 Foco',
+            pausaCurta: '☕ Pausa Curta',
+            pausaLonga: '🛋️ Pausa Longa'
+        };
+        const POMODORO_RAIO = 98;
+        const POMODORO_CIRCUNFERENCIA = 2 * Math.PI * POMODORO_RAIO;
+
+        let pomodoroConfig = { foco: 25, pausaCurta: 5, pausaLonga: 15, ciclos: 4, som: true, autoIniciar: false };
+        let pomodoroEstado = { modo: 'foco', cicloAtual: 1, restanteMs: 25 * 60 * 1000, rodando: false, fimTimestamp: null, ultimaAtividadeDia: 0 };
+        let pomodoroIntervalId = null;
+
+        function duracaoModoPomodoroMs(modo) {
+            const minutos = modo === 'foco' ? pomodoroConfig.foco
+                : modo === 'pausaCurta' ? pomodoroConfig.pausaCurta
+                : pomodoroConfig.pausaLonga;
+            return Math.max(1, minutos) * 60 * 1000;
+        }
+
+        function salvarEstadoPomodoro() {
+            const paraSalvar = Object.assign({}, pomodoroEstado);
+            // Se estiver rodando, salva o timestamp de término em vez do restante (mais preciso)
+            localStorage.setItem('estudo_ativo_pomodoro_estado', JSON.stringify(paraSalvar));
+        }
+
+        // Se a última atividade do Pomodoro foi num dia lógico diferente de hoje (vira
+        // às 4h, igual ao resto do app), zera o ciclo/sessões — não deixa a contagem de
+        // "sessões de ontem" acumular pro dia novo. Não mexe se um timer estiver rodando
+        // no momento (evita cortar uma sessão em andamento por causa da virada do dia).
+        function verificarNovoDiaPomodoro() {
+            const agora = Date.now();
+            const mesmoDia = estaNoMesmoDiaLeitner(pomodoroEstado.ultimaAtividadeDia, agora);
+            if (!mesmoDia && !pomodoroEstado.rodando) {
+                pomodoroEstado.cicloAtual = 1;
+                pomodoroEstado.modo = 'foco';
+                pomodoroEstado.restanteMs = duracaoModoPomodoroMs('foco');
+                pomodoroEstado.fimTimestamp = null;
+                salvarEstadoPomodoro();
+            }
+            pomodoroEstado.ultimaAtividadeDia = agora;
+        }
+
+        function carregarPomodoro() {
+            try {
+                const cfgSalva = JSON.parse(localStorage.getItem('estudo_ativo_pomodoro_config') || 'null');
+                if (cfgSalva) pomodoroConfig = Object.assign(pomodoroConfig, cfgSalva);
+            } catch(e) {}
+
+            try {
+                const estadoSalvo = JSON.parse(localStorage.getItem('estudo_ativo_pomodoro_estado') || 'null');
+                if (estadoSalvo) {
+                    pomodoroEstado = Object.assign(pomodoroEstado, estadoSalvo);
+                    if (pomodoroEstado.rodando && pomodoroEstado.fimTimestamp) {
+                        const restanteAgora = pomodoroEstado.fimTimestamp - Date.now();
+                        if (restanteAgora <= 0) {
+                            // Terminou enquanto o app estava fechado: aplica a conclusão e para
+                            pomodoroEstado.rodando = false;
+                            pomodoroEstado.restanteMs = 0;
+                            finalizarSessaoPomodoro(true);
+                        } else {
+                            pomodoroEstado.restanteMs = restanteAgora;
+                            iniciarIntervaloPomodoro();
+                        }
+                    }
+                }
+            } catch(e) {}
+
+            verificarNovoDiaPomodoro();
+            atualizarDisplayPomodoro();
+        }
+
+        function formatarTempoPomodoro(ms) {
+            const totalSeg = Math.max(0, Math.ceil(ms / 1000));
+            const min = Math.floor(totalSeg / 60);
+            const seg = totalSeg % 60;
+            return `${String(min).padStart(2,'0')}:${String(seg).padStart(2,'0')}`;
+        }
+
+        function atualizarDisplayPomodoro() {
+            const total = duracaoModoPomodoroMs(pomodoroEstado.modo);
+            const restante = Math.max(0, Math.min(pomodoroEstado.restanteMs, total));
+            const progresso = total > 0 ? restante / total : 0;
+
+            const tempoTexto = formatarTempoPomodoro(restante);
+            const timeEl = document.getElementById('pomodoroTime');
+            if (timeEl) timeEl.textContent = tempoTexto;
+
+            const ring = document.getElementById('pomodoroRingFg');
+            if (ring) {
+                ring.style.stroke = POMODORO_CORES[pomodoroEstado.modo];
+                ring.style.strokeDasharray = `${POMODORO_CIRCUNFERENCIA}`;
+                ring.style.strokeDashoffset = `${POMODORO_CIRCUNFERENCIA * (1 - progresso)}`;
+            }
+
+            const label = document.getElementById('pomodoroModeLabel');
+            if (label) {
+                label.textContent = POMODORO_LABELS[pomodoroEstado.modo];
+                label.classList.toggle('modo-pausa', pomodoroEstado.modo !== 'foco');
+            }
+
+            const btn = document.getElementById('pomodoroBtnPrincipal');
+            if (btn) btn.textContent = pomodoroEstado.rodando ? '⏸ Pausar' : '▶ Iniciar';
+
+            // Bolinhas de progresso do ciclo (🍅 preenchido = sessão de foco concluída)
+            const dotsEl = document.getElementById('pomodoroDots');
+            if (dotsEl) {
+                dotsEl.innerHTML = '';
+                const ciclos = Math.max(1, pomodoroConfig.ciclos);
+                const concluidosNoCiclo = ((pomodoroEstado.cicloAtual - 1) % ciclos + ciclos) % ciclos;
+                for (let i = 0; i < ciclos; i++) {
+                    const dot = document.createElement('span');
+                    dot.className = 'pomodoro-dot' + (i < concluidosNoCiclo ? ' completo' : '');
+                    dot.textContent = '🍅';
+                    dotsEl.appendChild(dot);
+                }
+            }
+
+            // Botão flutuante: mostra o tempo restante quando rodando
+            const fab = document.getElementById('pomodoroFab');
+            if (fab) {
+                if (pomodoroEstado.rodando) {
+                    fab.textContent = tempoTexto;
+                    fab.classList.add('pomodoro-fab-rodando');
+                    fab.style.background = `linear-gradient(135deg, ${POMODORO_CORES[pomodoroEstado.modo]}, ${POMODORO_CORES[pomodoroEstado.modo]})`;
+                } else {
+                    fab.textContent = '🍅';
+                    fab.classList.remove('pomodoro-fab-rodando');
+                    fab.style.background = 'linear-gradient(135deg, #e53e3e, #c53030)';
+                }
+            }
+        }
+
+        function iniciarIntervaloPomodoro() {
+            if (pomodoroIntervalId) clearInterval(pomodoroIntervalId);
+            pomodoroIntervalId = setInterval(tickPomodoro, 250);
+        }
+
+        function tickPomodoro() {
+            if (!pomodoroEstado.rodando || !pomodoroEstado.fimTimestamp) return;
+            const restante = pomodoroEstado.fimTimestamp - Date.now();
+            if (restante <= 0) {
+                pomodoroEstado.restanteMs = 0;
+                finalizarSessaoPomodoro(true);
+            } else {
+                pomodoroEstado.restanteMs = restante;
+                atualizarDisplayPomodoro();
+            }
+        }
+
+        function tocarSomPomodoro() {
+            if (!pomodoroConfig.som) return;
+            try {
+                const ctx = new (window.AudioContext || window.webkitAudioContext)();
+                [0, 0.22, 0.44].forEach((delay, i) => {
+                    const osc = ctx.createOscillator();
+                    const gain = ctx.createGain();
+                    osc.connect(gain);
+                    gain.connect(ctx.destination);
+                    osc.frequency.value = i === 2 ? 987.77 : 783.99; // beep agudo no final
+                    gain.gain.setValueAtTime(0.001, ctx.currentTime + delay);
+                    gain.gain.exponentialRampToValueAtTime(0.25, ctx.currentTime + delay + 0.02);
+                    gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + delay + 0.18);
+                    osc.start(ctx.currentTime + delay);
+                    osc.stop(ctx.currentTime + delay + 0.2);
+                });
+            } catch(e) { /* Web Audio indisponível — ignora silenciosamente */ }
+        }
+
+        function finalizarSessaoPomodoro(disparadoPorConclusao) {
+            if (pomodoroIntervalId) { clearInterval(pomodoroIntervalId); pomodoroIntervalId = null; }
+
+            const modoAnterior = pomodoroEstado.modo;
+            if (disparadoPorConclusao) tocarSomPomodoro();
+
+            if (modoAnterior === 'foco') {
+                const proximoCiclo = pomodoroEstado.cicloAtual + 1;
+                const ehPausaLonga = (pomodoroEstado.cicloAtual % Math.max(1, pomodoroConfig.ciclos)) === 0;
+                pomodoroEstado.cicloAtual = proximoCiclo;
+                pomodoroEstado.modo = ehPausaLonga ? 'pausaLonga' : 'pausaCurta';
+                if (disparadoPorConclusao) mostrarToast('🍅 Foco concluído! Hora da pausa.', POMODORO_CORES.pausaCurta);
+            } else {
+                pomodoroEstado.modo = 'foco';
+                if (disparadoPorConclusao) mostrarToast('☕ Pausa concluída! De volta ao foco.', POMODORO_CORES.foco);
+            }
+
+            pomodoroEstado.restanteMs = duracaoModoPomodoroMs(pomodoroEstado.modo);
+            pomodoroEstado.rodando = false;
+            pomodoroEstado.fimTimestamp = null;
+
+            if (pomodoroConfig.autoIniciar) {
+                iniciarPomodoro();
+            } else {
+                atualizarDisplayPomodoro();
+                salvarEstadoPomodoro();
+            }
+        }
+
+        function iniciarPomodoro() {
+            pomodoroEstado.fimTimestamp = Date.now() + pomodoroEstado.restanteMs;
+            pomodoroEstado.rodando = true;
+            iniciarIntervaloPomodoro();
+            atualizarDisplayPomodoro();
+            salvarEstadoPomodoro();
+        }
+
+        function pausarPomodoro() {
+            if (pomodoroEstado.fimTimestamp) {
+                pomodoroEstado.restanteMs = Math.max(0, pomodoroEstado.fimTimestamp - Date.now());
+            }
+            pomodoroEstado.rodando = false;
+            pomodoroEstado.fimTimestamp = null;
+            if (pomodoroIntervalId) { clearInterval(pomodoroIntervalId); pomodoroIntervalId = null; }
+            atualizarDisplayPomodoro();
+            salvarEstadoPomodoro();
+        }
+
+        function alternarPomodoro() {
+            if (pomodoroEstado.rodando) pausarPomodoro();
+            else iniciarPomodoro();
+        }
+
+        function resetarPomodoro() {
+            pausarPomodoro();
+            pomodoroEstado.restanteMs = duracaoModoPomodoroMs(pomodoroEstado.modo);
+            atualizarDisplayPomodoro();
+            salvarEstadoPomodoro();
+        }
+
+        function pularPomodoro() {
+            finalizarSessaoPomodoro(false);
+        }
+
+        function abrirPomodoro() {
+            verificarNovoDiaPomodoro();
+            document.getElementById('pomodoroOverlay').style.display = 'flex';
+            atualizarDisplayPomodoro();
+        }
+
+        function fecharPomodoro() {
+            document.getElementById('pomodoroOverlay').style.display = 'none';
+        }
+
+        function alternarConfigPomodoro() {
+            const painel = document.getElementById('pomodoroConfigPainel');
+            const abrindo = painel.style.display === 'none';
+            if (abrindo) {
+                document.getElementById('cfgFoco').value = pomodoroConfig.foco;
+                document.getElementById('cfgPausaCurta').value = pomodoroConfig.pausaCurta;
+                document.getElementById('cfgPausaLonga').value = pomodoroConfig.pausaLonga;
+                document.getElementById('cfgCiclos').value = pomodoroConfig.ciclos;
+                document.getElementById('cfgSom').checked = pomodoroConfig.som;
+                document.getElementById('cfgAutoIniciar').checked = pomodoroConfig.autoIniciar;
+            }
+            painel.style.display = abrindo ? 'flex' : 'none';
+        }
+
+        function salvarConfigPomodoro() {
+            pomodoroConfig.foco = Math.max(1, parseInt(document.getElementById('cfgFoco').value) || 25);
+            pomodoroConfig.pausaCurta = Math.max(1, parseInt(document.getElementById('cfgPausaCurta').value) || 5);
+            pomodoroConfig.pausaLonga = Math.max(1, parseInt(document.getElementById('cfgPausaLonga').value) || 15);
+            pomodoroConfig.ciclos = Math.max(1, parseInt(document.getElementById('cfgCiclos').value) || 4);
+            pomodoroConfig.som = document.getElementById('cfgSom').checked;
+            pomodoroConfig.autoIniciar = document.getElementById('cfgAutoIniciar').checked;
+
+            localStorage.setItem('estudo_ativo_pomodoro_config', JSON.stringify(pomodoroConfig));
+
+            // Se o timer não estiver rodando, atualiza o tempo restante do modo atual pra refletir a nova duração
+            if (!pomodoroEstado.rodando) {
+                pomodoroEstado.restanteMs = duracaoModoPomodoroMs(pomodoroEstado.modo);
+            }
+
+            atualizarDisplayPomodoro();
+            salvarEstadoPomodoro();
+            document.getElementById('pomodoroConfigPainel').style.display = 'none';
+            mostrarToast('⚙️ Configurações do Pomodoro salvas!', '#38a169');
+        }
+
+        carregarPomodoro();
+    </script>
+
+    <script>
+        // Registra o Service Worker (cache offline + instalabilidade PWA)
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', () => {
+                navigator.serviceWorker.register('sw.js').catch((err) => {
+                    console.log('Falha ao registrar o Service Worker:', err);
+                });
+            });
+        }
+    </script>
+</body>
+</html>
